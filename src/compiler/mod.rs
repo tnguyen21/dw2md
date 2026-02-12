@@ -19,8 +19,91 @@ pub struct CompileConfig {
     pub verbose: bool,
 }
 
+/// Fetch just the wiki structure (table of contents), without page contents.
+pub async fn fetch_structure(config: &CompileConfig) -> Result<Vec<Page>> {
+    let client = connect(&config).await?;
+
+    let structure = fetch_structure_inner(&client, config).await?;
+
+    let pages = filter::filter_pages(structure.pages, &config.include, &config.exclude);
+
+    Ok(pages)
+}
+
 /// Fetch the wiki structure and all page contents.
 pub async fn fetch_wiki(config: &CompileConfig) -> Result<Vec<Page>> {
+    let client = connect(&config).await?;
+
+    let structure = fetch_structure_inner(&client, config).await?;
+
+    let mut pages = filter::filter_pages(structure.pages, &config.include, &config.exclude);
+    let total_pages = pages.len();
+
+    if !config.quiet {
+        eprintln!("[dw2md] {} pages to fetch", total_pages);
+    }
+
+    fetch_and_merge_contents(&client, config, &mut pages).await?;
+
+    let matched = pages.iter().filter(|p| p.content.is_some()).count();
+    let unmatched = total_pages - matched;
+
+    if !config.quiet {
+        eprintln!(
+            "[dw2md] Done: {} pages matched, {} unmatched",
+            matched, unmatched
+        );
+    }
+
+    if unmatched > 0 && config.verbose {
+        for page in &pages {
+            if page.content.is_none() {
+                eprintln!("[dw2md] Warning: No content matched for '{}'", page.title);
+            }
+        }
+    }
+
+    Ok(pages)
+}
+
+/// Fetch wiki structure and all page contents, but only keep pages in `selected_slugs`.
+pub async fn fetch_wiki_selected(
+    config: &CompileConfig,
+    selected_slugs: &[String],
+) -> Result<Vec<Page>> {
+    let client = connect(&config).await?;
+
+    let structure = fetch_structure_inner(&client, config).await?;
+
+    // Keep only pages whose slug is in the selected set
+    let mut pages: Vec<Page> = structure
+        .pages
+        .into_iter()
+        .filter(|p| selected_slugs.contains(&p.slug))
+        .collect();
+
+    let total_pages = pages.len();
+
+    if !config.quiet {
+        eprintln!("[dw2md] {} pages selected", total_pages);
+    }
+
+    fetch_and_merge_contents(&client, config, &mut pages).await?;
+
+    let matched = pages.iter().filter(|p| p.content.is_some()).count();
+    let unmatched = total_pages - matched;
+
+    if !config.quiet {
+        eprintln!(
+            "[dw2md] Done: {} pages matched, {} unmatched",
+            matched, unmatched
+        );
+    }
+
+    Ok(pages)
+}
+
+async fn connect(config: &CompileConfig) -> Result<McpClient> {
     let client = McpClient::connect(config.timeout)
         .await
         .context("Failed to connect to DeepWiki MCP server")?;
@@ -29,12 +112,18 @@ pub async fn fetch_wiki(config: &CompileConfig) -> Result<Vec<Page>> {
         eprintln!("[dw2md] Connected to MCP server");
     }
 
-    // Phase 1: Fetch wiki structure
+    Ok(client)
+}
+
+async fn fetch_structure_inner(
+    client: &McpClient,
+    config: &CompileConfig,
+) -> Result<WikiStructure> {
     if !config.quiet {
         eprintln!("[dw2md] Fetching wiki structure for {}...", config.repo);
     }
 
-    let structure_text = call_with_retry(&client, "read_wiki_structure", &config.repo, 3)
+    let structure_text = call_with_retry(client, "read_wiki_structure", &config.repo, 3)
         .await
         .context(format!(
             "Failed to fetch wiki structure. Repository '{}' may not be indexed on DeepWiki. \
@@ -57,15 +146,14 @@ pub async fn fetch_wiki(config: &CompileConfig) -> Result<Vec<Page>> {
         eprintln!("[dw2md] Found {} pages in structure", structure.pages.len());
     }
 
-    // Apply include/exclude filters
-    let mut pages = filter::filter_pages(structure.pages, &config.include, &config.exclude);
-    let total_pages = pages.len();
+    Ok(structure)
+}
 
-    if !config.quiet {
-        eprintln!("[dw2md] {} pages to fetch", total_pages);
-    }
-
-    // Phase 2: Fetch all page contents (single API call returns everything)
+async fn fetch_and_merge_contents(
+    client: &McpClient,
+    config: &CompileConfig,
+    pages: &mut [Page],
+) -> Result<()> {
     let progress = if !config.quiet {
         let pb = ProgressBar::new_spinner();
         pb.set_style(
@@ -80,7 +168,7 @@ pub async fn fetch_wiki(config: &CompileConfig) -> Result<Vec<Page>> {
         None
     };
 
-    let contents_text = call_with_retry(&client, "read_wiki_contents", &config.repo, 3)
+    let contents_text = call_with_retry(client, "read_wiki_contents", &config.repo, 3)
         .await
         .context("Failed to fetch wiki contents")?;
 
@@ -89,13 +177,9 @@ pub async fn fetch_wiki(config: &CompileConfig) -> Result<Vec<Page>> {
     }
 
     if config.verbose {
-        eprintln!(
-            "[dw2md] Raw content ({} bytes)",
-            contents_text.len()
-        );
+        eprintln!("[dw2md] Raw content ({} bytes)", contents_text.len());
     }
 
-    // Phase 3: Split content by "# Page:" markers and match to structure
     let content_pages = split_pages(&contents_text);
 
     if config.verbose {
@@ -108,31 +192,13 @@ pub async fn fetch_wiki(config: &CompileConfig) -> Result<Vec<Page>> {
         }
     }
 
-    merge_content(&mut pages, &content_pages);
+    merge_content(pages, &content_pages);
 
     if let Some(pb) = progress {
         pb.finish_and_clear();
     }
 
-    let matched = pages.iter().filter(|p| p.content.is_some()).count();
-    let unmatched = total_pages - matched;
-
-    if !config.quiet {
-        eprintln!(
-            "[dw2md] Done: {} pages matched, {} unmatched",
-            matched, unmatched
-        );
-    }
-
-    if unmatched > 0 && config.verbose {
-        for page in &pages {
-            if page.content.is_none() {
-                eprintln!("[dw2md] Warning: No content matched for '{}'", page.title);
-            }
-        }
-    }
-
-    Ok(pages)
+    Ok(())
 }
 
 /// Call an MCP tool with retry logic (exponential backoff).

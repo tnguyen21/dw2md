@@ -41,6 +41,8 @@ dw2md [OPTIONS] <REPO>
 | `--exclude <FILTER>` | `-x` | none | Comma-separated page slugs to exclude |
 | `--no-toc` | | | Omit the table of contents |
 | `--no-metadata` | | | Omit the metadata header |
+| `--list` | `-l` | | Print the table of contents and exit |
+| `--interactive` | `-i` | | Interactively select which sections to include |
 | `--quiet` | `-q` | | Suppress progress on stderr |
 | `--verbose` | `-v` | | Show debug info |
 
@@ -81,6 +83,28 @@ dw2md facebook/react -f json -o react.json
 ```bash
 dw2md https://deepwiki.com/anthropics/claude-code
 ```
+
+**See what sections are available before downloading:**
+
+```bash
+dw2md facebook/react --list
+```
+
+```
+- 1 Overview [1-overview]
+  - 1.1 Repository Structure and Packages [1-1-repository-structure-and-packages]
+- 2 Feature Flags System [2-feature-flags-system]
+- 3 Build System and Package Distribution [3-build-system-and-package-distribution]
+  ...
+```
+
+**Interactively pick which sections to include:**
+
+```bash
+dw2md facebook/react -i -o react-wiki.md
+```
+
+Shows a multi-select prompt where you can toggle sections on/off with space, then press enter to fetch only what you selected.
 
 **Minimal output — no metadata, no TOC, just content:**
 

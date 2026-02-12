@@ -6,6 +6,8 @@ use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use clap::Parser;
+use dialoguer::MultiSelect;
+use dialoguer::theme::ColorfulTheme;
 
 /// Crawl a DeepWiki repository and compile all pages into a single, LLM-friendly markdown file.
 #[derive(Parser, Debug)]
@@ -49,6 +51,14 @@ struct Cli {
     /// Show detailed progress and debug info
     #[arg(short, long)]
     verbose: bool,
+
+    /// Print only the table of contents, then exit
+    #[arg(short, long)]
+    list: bool,
+
+    /// Interactively select which sections to include
+    #[arg(short, long)]
+    interactive: bool,
 }
 
 #[derive(Debug, Clone, clap::ValueEnum)]
@@ -93,6 +103,12 @@ fn parse_repo(input: &str) -> Result<String> {
     Ok(input.to_string())
 }
 
+/// Format a page title with indentation for display.
+fn format_page_label(page: &wiki::Page) -> String {
+    let indent = "  ".repeat(page.depth);
+    format!("{}{}", indent, page.title)
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -108,6 +124,68 @@ async fn main() -> Result<()> {
         verbose: cli.verbose,
     };
 
+    // --list: just print the TOC and exit
+    if cli.list {
+        let pages = compiler::fetch_structure(&config).await?;
+        for page in &pages {
+            let indent = "  ".repeat(page.depth);
+            println!("{}- {} [{}]", indent, page.title, page.slug);
+        }
+        return Ok(());
+    }
+
+    // --interactive: show TOC, let user pick, then fetch only those
+    if cli.interactive {
+        let all_pages = compiler::fetch_structure(&config).await?;
+
+        if all_pages.is_empty() {
+            bail!("No pages found for {}", repo);
+        }
+
+        let labels: Vec<String> = all_pages.iter().map(|p| format_page_label(p)).collect();
+
+        // All selected by default
+        let defaults: Vec<bool> = vec![true; all_pages.len()];
+
+        eprintln!();
+        let selections = MultiSelect::with_theme(&ColorfulTheme::default())
+            .with_prompt("Select pages to include (space to toggle, enter to confirm)")
+            .items(&labels)
+            .defaults(&defaults)
+            .max_length(20)
+            .interact()?;
+
+        if selections.is_empty() {
+            bail!("No pages selected");
+        }
+
+        let selected_slugs: Vec<String> = selections
+            .iter()
+            .map(|&i| all_pages[i].slug.clone())
+            .collect();
+
+        let selected_count = selected_slugs.len();
+        if !cli.quiet {
+            eprintln!(
+                "[dw2md] {} of {} pages selected",
+                selected_count,
+                all_pages.len()
+            );
+        }
+
+        let pages = compiler::fetch_wiki_selected(&config, &selected_slugs).await?;
+
+        let output = match cli.format {
+            OutputFormat::Markdown => {
+                compiler::markdown::compile(&repo, &pages, !cli.no_toc, !cli.no_metadata)
+            }
+            OutputFormat::Json => compiler::json::compile(&repo, &pages),
+        };
+
+        return write_output(&output, cli.output.as_deref(), cli.quiet);
+    }
+
+    // Default: fetch everything
     let pages = compiler::fetch_wiki(&config).await?;
 
     let output = match cli.format {
@@ -117,16 +195,19 @@ async fn main() -> Result<()> {
         OutputFormat::Json => compiler::json::compile(&repo, &pages),
     };
 
-    if let Some(path) = cli.output {
-        std::fs::write(&path, &output)
+    write_output(&output, cli.output.as_deref(), cli.quiet)
+}
+
+fn write_output(output: &str, path: Option<&str>, quiet: bool) -> Result<()> {
+    if let Some(path) = path {
+        std::fs::write(path, output)
             .with_context(|| format!("Failed to write output to {}", path))?;
-        if !cli.quiet {
+        if !quiet {
             eprintln!("[dw2md] Output written to {}", path);
         }
     } else {
         print!("{}", output);
     }
-
     Ok(())
 }
 
@@ -174,5 +255,35 @@ mod tests {
     #[test]
     fn test_parse_repo_wrong_host() {
         assert!(parse_repo("https://github.com/owner/repo").is_err());
+    }
+
+    #[test]
+    fn test_format_page_label() {
+        let page = wiki::Page {
+            slug: "1-overview".into(),
+            title: "1 Overview".into(),
+            depth: 0,
+            content: None,
+            error: None,
+        };
+        assert_eq!(format_page_label(&page), "1 Overview");
+
+        let child = wiki::Page {
+            slug: "1-1-features".into(),
+            title: "1.1 Features".into(),
+            depth: 1,
+            content: None,
+            error: None,
+        };
+        assert_eq!(format_page_label(&child), "  1.1 Features");
+
+        let deep = wiki::Page {
+            slug: "1-1-1-sub".into(),
+            title: "1.1.1 Sub".into(),
+            depth: 2,
+            content: None,
+            error: None,
+        };
+        assert_eq!(format_page_label(&deep), "    1.1.1 Sub");
     }
 }
