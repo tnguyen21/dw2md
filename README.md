@@ -60,7 +60,29 @@ dw2md tokio-rs/tokio -o tokio-wiki.md
 dw2md facebook/react | pbcopy
 ```
 
-**Only grab specific sections:**
+**Interactively pick which sections to include:**
+
+```bash
+dw2md facebook/react -i -o react-wiki.md
+```
+
+Shows a multi-select prompt where you can toggle sections on/off with space, then press enter to fetch only what you selected. All sections are selected by default.
+
+**See what sections are available before downloading:**
+
+```bash
+dw2md facebook/react --list
+```
+
+```
+- 1 Overview [1-overview]
+  - 1.1 Repository Structure and Packages [1-1-repository-structure-and-packages]
+- 2 Feature Flags System [2-feature-flags-system]
+- 3 Build System and Package Distribution [3-build-system-and-package-distribution]
+  ...
+```
+
+**Only grab specific sections (if you know the slugs):**
 
 ```bash
 dw2md facebook/react -p "4-react-reconciler,4-1-fiber-architecture-and-data-structures"
@@ -83,28 +105,6 @@ dw2md facebook/react -f json -o react.json
 ```bash
 dw2md https://deepwiki.com/anthropics/claude-code
 ```
-
-**See what sections are available before downloading:**
-
-```bash
-dw2md facebook/react --list
-```
-
-```
-- 1 Overview [1-overview]
-  - 1.1 Repository Structure and Packages [1-1-repository-structure-and-packages]
-- 2 Feature Flags System [2-feature-flags-system]
-- 3 Build System and Package Distribution [3-build-system-and-package-distribution]
-  ...
-```
-
-**Interactively pick which sections to include:**
-
-```bash
-dw2md facebook/react -i -o react-wiki.md
-```
-
-Shows a multi-select prompt where you can toggle sections on/off with space, then press enter to fetch only what you selected.
 
 **Minimal output — no metadata, no TOC, just content:**
 
