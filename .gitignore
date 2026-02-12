@@ -1,1 +1,6 @@
 /target
+*.json
+!package.json
+
+# dw2md output files
+*-wiki.md
