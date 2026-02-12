@@ -239,7 +239,7 @@ mod tests {
 
     #[test]
     fn test_parse_text_structure() {
-        let text = "Available pages for facebook/react:\n\
+        let text = "Available pages for tinygrad/tinygrad:\n\
                      \n\
                      - 1 Overview\n\
                      \x20\x20- 1.1 Repository Structure\n\

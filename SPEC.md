@@ -89,11 +89,11 @@ POST /mcp
 
 The three available tools are:
 
-| Tool | Purpose | Key Arguments |
-|------|---------|---------------|
-| `read_wiki_structure` | Returns the wiki's table of contents (page titles, hierarchy, slugs) | `repo` (e.g. `"facebook/react"`) |
-| `read_wiki_contents` | Returns the markdown content for a specific page | `repo`, page identifier (slug or title — discover exact schema via `tools/list` at runtime) |
-| `ask_question` | Not used by `dw2md`, but available for future extensions | `repo`, `question` |
+| Tool                  | Purpose                                                              | Key Arguments                                                                               |
+| --------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `read_wiki_structure` | Returns the wiki's table of contents (page titles, hierarchy, slugs) | `repo` (e.g. `"tinygrad/tinygrad"`)                                                         |
+| `read_wiki_contents`  | Returns the markdown content for a specific page                     | `repo`, page identifier (slug or title — discover exact schema via `tools/list` at runtime) |
+| `ask_question`        | Not used by `dw2md`, but available for future extensions             | `repo`, `question`                                                                          |
 
 **Important:** The exact argument schemas for these tools should be discovered at runtime by calling `tools/list` during initialization. The schemas above are based on documentation and observed behavior, but the server is the source of truth. The tool should call `tools/list` on first run and cache the schemas, or at minimum handle schema mismatches gracefully.
 
@@ -132,39 +132,39 @@ dw2md [OPTIONS] <REPO>
 ### Arguments
 
 - `<REPO>` — Repository identifier. Accepts any of:
-  - `owner/repo` (e.g. `facebook/react`)
+  - `owner/repo` (e.g. `tinygrad/tinygrad`)
   - `https://deepwiki.com/owner/repo`
   - `https://deepwiki.com/owner/repo/3.1-some-page` (extracts `owner/repo`, ignores page path)
 
 ### Options
 
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--output <FILE>` | `-o` | stdout | Write output to a file instead of stdout |
-| `--concurrency <N>` | `-j` | `4` | Max concurrent page fetches |
-| `--format <FMT>` | `-f` | `markdown` | Output format: `markdown` or `json` |
-| `--timeout <SECS>` | `-t` | `30` | Per-request timeout in seconds |
-| `--pages <FILTER>` | `-p` | all | Comma-separated page slugs to include (e.g. `1-overview,3.1-data-pipeline`) |
-| `--exclude <FILTER>` | `-x` | none | Comma-separated page slugs to exclude |
-| `--no-toc` | | false | Omit the generated table of contents from output |
-| `--no-metadata` | | false | Omit the metadata header block |
-| `--quiet` | `-q` | false | Suppress progress output on stderr |
-| `--verbose` | `-v` | false | Show detailed progress and debug info |
+| Flag                 | Short | Default    | Description                                                                 |
+| -------------------- | ----- | ---------- | --------------------------------------------------------------------------- |
+| `--output <FILE>`    | `-o`  | stdout     | Write output to a file instead of stdout                                    |
+| `--concurrency <N>`  | `-j`  | `4`        | Max concurrent page fetches                                                 |
+| `--format <FMT>`     | `-f`  | `markdown` | Output format: `markdown` or `json`                                         |
+| `--timeout <SECS>`   | `-t`  | `30`       | Per-request timeout in seconds                                              |
+| `--pages <FILTER>`   | `-p`  | all        | Comma-separated page slugs to include (e.g. `1-overview,3.1-data-pipeline`) |
+| `--exclude <FILTER>` | `-x`  | none       | Comma-separated page slugs to exclude                                       |
+| `--no-toc`           |       | false      | Omit the generated table of contents from output                            |
+| `--no-metadata`      |       | false      | Omit the metadata header block                                              |
+| `--quiet`            | `-q`  | false      | Suppress progress output on stderr                                          |
+| `--verbose`          | `-v`  | false      | Show detailed progress and debug info                                       |
 
 ### Examples
 
 ```bash
 # Basic usage — prints to stdout
-dw2md facebook/react
+dw2md tinygrad/tinygrad
 
 # Save to file with progress
-dw2md facebook/react -o react-wiki.md
+dw2md tinygrad/tinygrad -o react-wiki.md
 
 # Just the architecture sections
 dw2md AsyncFuncAI/deepwiki-open -p 3-architecture,3.1-data-pipeline,3.2-rag-system
 
 # As JSON for programmatic use
-dw2md facebook/react -f json -o react-wiki.json
+dw2md tinygrad/tinygrad -f json -o react-wiki.json
 
 # From a full URL
 dw2md https://deepwiki.com/tokio-rs/tokio -o tokio.md
@@ -179,11 +179,11 @@ dw2md https://deepwiki.com/tokio-rs/tokio -o tokio.md
 The compiled document follows this structure:
 
 ```markdown
-<!-- dw2md v0.1.0 | facebook/react | 2026-02-12T15:30:00Z | 47 pages -->
+<!-- dw2md v0.1.0 | tinygrad/tinygrad | 2026-02-12T15:30:00Z | 47 pages -->
 
-# facebook/react — DeepWiki
+# tinygrad/tinygrad — DeepWiki
 
-> Compiled from https://deepwiki.com/facebook/react
+> Compiled from https://deepwiki.com/tinygrad/tinygrad
 > Generated: 2026-02-12T15:30:00Z | Pages: 47
 
 ## Table of Contents
@@ -226,8 +226,8 @@ When `--format json` is specified:
 
 ```json
 {
-  "repo": "facebook/react",
-  "url": "https://deepwiki.com/facebook/react",
+  "repo": "tinygrad/tinygrad",
+  "url": "https://deepwiki.com/tinygrad/tinygrad",
   "generated_at": "2026-02-12T15:30:00Z",
   "tool_version": "0.1.0",
   "page_count": 47,
@@ -256,15 +256,15 @@ The JSON format is useful for downstream tooling — feeding individual pages in
 
 ### Crate Dependencies
 
-| Crate | Purpose |
-|-------|---------|
-| `clap` | CLI argument parsing (derive API) |
-| `reqwest` | HTTP client (with `rustls-tls` for no OpenSSL dependency) |
-| `tokio` | Async runtime |
-| `serde` / `serde_json` | JSON serialization |
-| `futures` | Stream combinators for SSE parsing |
-| `indicatif` | Progress bars on stderr |
-| `anyhow` | Error handling |
+| Crate                  | Purpose                                                   |
+| ---------------------- | --------------------------------------------------------- |
+| `clap`                 | CLI argument parsing (derive API)                         |
+| `reqwest`              | HTTP client (with `rustls-tls` for no OpenSSL dependency) |
+| `tokio`                | Async runtime                                             |
+| `serde` / `serde_json` | JSON serialization                                        |
+| `futures`              | Stream combinators for SSE parsing                        |
+| `indicatif`            | Progress bars on stderr                                   |
+| `anyhow`               | Error handling                                            |
 
 ### Module Layout
 

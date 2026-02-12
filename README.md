@@ -3,7 +3,7 @@
 Grab an entire [DeepWiki](https://deepwiki.com) and compile it into a single markdown file — ready to drop into an LLM context window.
 
 ```bash
-dw2md facebook/react -o react-wiki.md
+dw2md tinygrad/tinygrad -o react-wiki.md
 ```
 
 DeepWiki generates excellent structured documentation for open-source repositories, but it's spread across dozens of client-rendered pages with no export button. `dw2md` talks directly to DeepWiki's MCP server to pull the full wiki structure and contents, then assembles everything into one clean document.
@@ -24,27 +24,27 @@ dw2md [OPTIONS] <REPO>
 
 `<REPO>` accepts any of:
 
-| Format | Example |
-|--------|---------|
-| `owner/repo` | `facebook/react` |
-| Full URL | `https://deepwiki.com/facebook/react` |
+| Format                   | Example                                           |
+| ------------------------ | ------------------------------------------------- |
+| `owner/repo`             | `tinygrad/tinygrad`                               |
+| Full URL                 | `https://deepwiki.com/tinygrad/tinygrad`          |
 | Page URL (extracts repo) | `https://deepwiki.com/tokio-rs/tokio/3.1-runtime` |
 
 ### Options
 
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--output <FILE>` | `-o` | stdout | Write to file instead of stdout |
-| `--format <FMT>` | `-f` | `markdown` | Output format: `markdown` or `json` |
-| `--timeout <SECS>` | `-t` | `30` | Per-request timeout in seconds |
-| `--pages <FILTER>` | `-p` | all | Comma-separated page slugs to include |
-| `--exclude <FILTER>` | `-x` | none | Comma-separated page slugs to exclude |
-| `--no-toc` | | | Omit the table of contents |
-| `--no-metadata` | | | Omit the metadata header |
-| `--list` | `-l` | | Print the table of contents and exit |
-| `--interactive` | `-i` | | Interactively select which sections to include |
-| `--quiet` | `-q` | | Suppress progress on stderr |
-| `--verbose` | `-v` | | Show debug info |
+| Flag                 | Short | Default    | Description                                    |
+| -------------------- | ----- | ---------- | ---------------------------------------------- |
+| `--output <FILE>`    | `-o`  | stdout     | Write to file instead of stdout                |
+| `--format <FMT>`     | `-f`  | `markdown` | Output format: `markdown` or `json`            |
+| `--timeout <SECS>`   | `-t`  | `30`       | Per-request timeout in seconds                 |
+| `--pages <FILTER>`   | `-p`  | all        | Comma-separated page slugs to include          |
+| `--exclude <FILTER>` | `-x`  | none       | Comma-separated page slugs to exclude          |
+| `--no-toc`           |       |            | Omit the table of contents                     |
+| `--no-metadata`      |       |            | Omit the metadata header                       |
+| `--list`             | `-l`  |            | Print the table of contents and exit           |
+| `--interactive`      | `-i`  |            | Interactively select which sections to include |
+| `--quiet`            | `-q`  |            | Suppress progress on stderr                    |
+| `--verbose`          | `-v`  |            | Show debug info                                |
 
 ## Examples
 
@@ -57,21 +57,13 @@ dw2md tokio-rs/tokio -o tokio-wiki.md
 **Pipe straight to clipboard (macOS):**
 
 ```bash
-dw2md facebook/react | pbcopy
+dw2md tinygrad/tinygrad | pbcopy
 ```
-
-**Interactively pick which sections to include:**
-
-```bash
-dw2md facebook/react -i -o react-wiki.md
-```
-
-Shows a multi-select prompt where you can toggle sections on/off with space, then press enter to fetch only what you selected. All sections are selected by default.
 
 **See what sections are available before downloading:**
 
 ```bash
-dw2md facebook/react --list
+dw2md tinygrad/tinygrad --list
 ```
 
 ```
@@ -82,22 +74,30 @@ dw2md facebook/react --list
   ...
 ```
 
+**Interactively pick which sections to include:**
+
+```bash
+dw2md tinygrad/tinygrad -i -o react-wiki.md
+```
+
+Shows a multi-select prompt where you can toggle sections on/off with space, then press enter to fetch only what you selected. All sections are selected by default.
+
 **Only grab specific sections (if you know the slugs):**
 
 ```bash
-dw2md facebook/react -p "4-react-reconciler,4-1-fiber-architecture-and-data-structures"
+dw2md tinygrad/tinygrad -p "4-react-reconciler,4-1-fiber-architecture-and-data-structures"
 ```
 
 **Exclude sections you don't need:**
 
 ```bash
-dw2md facebook/react -x "7-developer-tools-and-debugging"
+dw2md tinygrad/tinygrad -x "7-developer-tools-and-debugging"
 ```
 
 **JSON output for programmatic use:**
 
 ```bash
-dw2md facebook/react -f json -o react.json
+dw2md tinygrad/tinygrad -f json -o react.json
 ```
 
 **From a DeepWiki URL you already have open:**
@@ -109,7 +109,7 @@ dw2md https://deepwiki.com/anthropics/claude-code
 **Minimal output — no metadata, no TOC, just content:**
 
 ```bash
-dw2md facebook/react --no-toc --no-metadata
+dw2md tinygrad/tinygrad --no-toc --no-metadata
 ```
 
 ## Output
@@ -119,11 +119,11 @@ dw2md facebook/react --no-toc --no-metadata
 The compiled document looks like this:
 
 ```markdown
-<!-- dw2md v0.1.0 | facebook/react | 2026-02-12T15:30:00Z | 29 pages -->
+<!-- dw2md v0.1.0 | tinygrad/tinygrad | 2026-02-12T15:30:00Z | 29 pages -->
 
-# facebook/react — DeepWiki
+# tinygrad/tinygrad — DeepWiki
 
-> Compiled from https://deepwiki.com/facebook/react
+> Compiled from https://deepwiki.com/tinygrad/tinygrad
 > Generated: 2026-02-12T15:30:00Z | Pages: 29
 
 ## Table of Contents
@@ -163,8 +163,8 @@ With `--format json`:
 
 ```json
 {
-  "repo": "facebook/react",
-  "url": "https://deepwiki.com/facebook/react",
+  "repo": "tinygrad/tinygrad",
+  "url": "https://deepwiki.com/tinygrad/tinygrad",
   "generated_at": "2026-02-12T15:30:00Z",
   "tool_version": "0.1.0",
   "page_count": 29,

@@ -217,14 +217,14 @@ mod tests {
 
     #[test]
     fn test_parse_repo_simple() {
-        assert_eq!(parse_repo("facebook/react").unwrap(), "facebook/react");
+        assert_eq!(parse_repo("tinygrad/tinygrad").unwrap(), "tinygrad/tinygrad");
     }
 
     #[test]
     fn test_parse_repo_url() {
         assert_eq!(
-            parse_repo("https://deepwiki.com/facebook/react").unwrap(),
-            "facebook/react"
+            parse_repo("https://deepwiki.com/tinygrad/tinygrad").unwrap(),
+            "tinygrad/tinygrad"
         );
     }
 
