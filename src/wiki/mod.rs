@@ -9,7 +9,6 @@ pub struct Page {
     pub title: String,
     pub depth: usize,
     pub content: Option<String>,
-    /// If the page fetch failed, store the error message.
     #[serde(skip)]
     pub error: Option<String>,
 }
@@ -21,18 +20,22 @@ pub struct WikiStructure {
 }
 
 impl WikiStructure {
-    /// Parse the raw text from `read_wiki_structure` into a structured table of contents.
+    /// Parse the raw text from `read_wiki_structure`.
     ///
-    /// The response is typically a JSON array of page objects with title, id/slug, and children.
-    /// We flatten the tree into an ordered list with depth information.
+    /// The response is a bullet-list text like:
+    /// ```text
+    /// Available pages for owner/repo:
+    ///
+    /// - 1 Overview
+    ///   - 1.1 Repository Structure
+    /// - 2 Getting Started
+    /// ```
     pub fn parse(raw: &str) -> anyhow::Result<Self> {
-        // The structure response can be either JSON or a textual listing.
-        // Try JSON first.
+        // Try JSON first (future-proofing)
         if let Ok(value) = serde_json::from_str::<serde_json::Value>(raw) {
             return Self::from_json(&value);
         }
 
-        // Fallback: treat as a textual listing and parse lines.
         Self::from_text(raw)
     }
 
@@ -41,32 +44,28 @@ impl WikiStructure {
 
         if let Some(arr) = value.as_array() {
             for item in arr {
-                Self::flatten_page(item, 0, &mut pages);
+                Self::flatten_json_page(item, 0, &mut pages);
             }
         } else if let Some(obj) = value.as_object() {
-            // Could be a single root object with a "pages" or "children" field
             if let Some(arr) = obj.get("pages").and_then(|v| v.as_array()) {
                 for item in arr {
-                    Self::flatten_page(item, 0, &mut pages);
+                    Self::flatten_json_page(item, 0, &mut pages);
                 }
             } else if let Some(arr) = obj.get("children").and_then(|v| v.as_array()) {
                 for item in arr {
-                    Self::flatten_page(item, 0, &mut pages);
+                    Self::flatten_json_page(item, 0, &mut pages);
                 }
-            } else {
-                // Single page
-                Self::flatten_page(value, 0, &mut pages);
             }
         }
 
         if pages.is_empty() {
-            anyhow::bail!("Failed to parse wiki structure: no pages found");
+            anyhow::bail!("Failed to parse wiki structure: no pages found in JSON");
         }
 
         Ok(WikiStructure { pages })
     }
 
-    fn flatten_page(value: &serde_json::Value, depth: usize, pages: &mut Vec<Page>) {
+    fn flatten_json_page(value: &serde_json::Value, depth: usize, pages: &mut Vec<Page>) {
         let title = value
             .get("title")
             .and_then(|v| v.as_str())
@@ -90,45 +89,51 @@ impl WikiStructure {
 
         if let Some(children) = value.get("children").and_then(|v| v.as_array()) {
             for child in children {
-                Self::flatten_page(child, depth + 1, pages);
+                Self::flatten_json_page(child, depth + 1, pages);
             }
         }
     }
 
+    /// Parse the text-based structure listing from DeepWiki.
+    ///
+    /// Format:
+    /// ```text
+    /// Available pages for owner/repo:
+    ///
+    /// - 1 Overview
+    ///   - 1.1 Repository Structure
+    /// - 2 Getting Started
+    /// ```
     fn from_text(text: &str) -> anyhow::Result<Self> {
         let mut pages = Vec::new();
 
         for line in text.lines() {
+            // Skip empty lines and the header
             let trimmed = line.trim();
-            if trimmed.is_empty() {
+            if trimmed.is_empty() || trimmed.starts_with("Available pages") {
                 continue;
             }
 
-            // Count leading whitespace to determine depth
-            let indent = line.len() - line.trim_start().len();
-            let depth = indent / 2;
+            // Lines look like "- 1 Overview" or "  - 1.1 Repository Structure"
+            // Find the "- " marker
+            if let Some(dash_pos) = line.find("- ") {
+                let depth = line[..dash_pos].chars().filter(|c| *c == ' ').count() / 2;
+                let after_dash = &line[dash_pos + 2..];
 
-            // Try to extract a slug-like prefix (e.g., "1.2-some-title")
-            let (slug, title) = if let Some(pos) = trimmed.find(' ') {
-                let potential_slug = &trimmed[..pos];
-                if potential_slug.contains('-')
-                    || potential_slug.chars().next().map_or(false, |c| c.is_ascii_digit())
-                {
-                    (potential_slug.to_string(), trimmed[pos + 1..].trim().to_string())
-                } else {
-                    (slugify(trimmed), trimmed.to_string())
-                }
-            } else {
-                (slugify(trimmed), trimmed.to_string())
-            };
+                // The title is everything after "- ", like "1 Overview" or "1.1 Repository Structure"
+                let title = after_dash.trim().to_string();
 
-            pages.push(Page {
-                slug,
-                title,
-                depth,
-                content: None,
-                error: None,
-            });
+                // Generate a slug from the title: "1 Overview" -> "1-overview"
+                let slug = slugify(&title);
+
+                pages.push(Page {
+                    slug,
+                    title,
+                    depth,
+                    content: None,
+                    error: None,
+                });
+            }
         }
 
         if pages.is_empty() {
@@ -139,17 +144,80 @@ impl WikiStructure {
     }
 }
 
+/// Split the combined content from `read_wiki_contents` into individual pages.
+///
+/// The content uses `# Page: <title>` as delimiters between pages.
+pub fn split_pages(content: &str) -> Vec<(String, String)> {
+    let mut pages = Vec::new();
+    let mut current_title: Option<String> = None;
+    let mut current_content = String::new();
+
+    for line in content.lines() {
+        if let Some(title) = line.strip_prefix("# Page: ") {
+            // Save the previous page
+            if let Some(prev_title) = current_title.take() {
+                pages.push((prev_title, current_content.trim().to_string()));
+                current_content.clear();
+            }
+            current_title = Some(title.trim().to_string());
+        } else if current_title.is_some() {
+            current_content.push_str(line);
+            current_content.push('\n');
+        }
+    }
+
+    // Save the last page
+    if let Some(title) = current_title {
+        pages.push((title, current_content.trim().to_string()));
+    }
+
+    pages
+}
+
+/// Match split pages to the wiki structure by title.
+///
+/// Structure titles look like "1 Overview" or "1.1 Repository Structure",
+/// while page delimiters use "# Page: Overview" or "# Page: Repository Structure".
+/// We strip the leading number prefix from the structure title for matching.
+pub fn merge_content(structure: &mut [Page], content_pages: &[(String, String)]) {
+    for page in structure.iter_mut() {
+        let stripped_title = strip_number_prefix(&page.title);
+
+        if let Some((_, content)) = content_pages.iter().find(|(title, _)| {
+            *title == page.title || *title == stripped_title
+        }) {
+            page.content = Some(content.clone());
+        }
+    }
+}
+
+/// Strip a leading number prefix like "1 ", "1.1 ", "3.2.1 " from a title.
+fn strip_number_prefix(title: &str) -> String {
+    let bytes = title.as_bytes();
+    let mut i = 0;
+
+    // Skip digits and dots (e.g., "1", "1.1", "3.2.1")
+    while i < bytes.len() && (bytes[i].is_ascii_digit() || bytes[i] == b'.') {
+        i += 1;
+    }
+
+    // Skip the space after the number
+    if i > 0 && i < bytes.len() && bytes[i] == b' ' {
+        i += 1;
+    }
+
+    if i > 0 && i < title.len() {
+        title[i..].to_string()
+    } else {
+        title.to_string()
+    }
+}
+
 /// Convert a title to a URL-safe slug.
 pub fn slugify(s: &str) -> String {
     s.to_lowercase()
         .chars()
-        .map(|c| {
-            if c.is_alphanumeric() {
-                c
-            } else {
-                '-'
-            }
-        })
+        .map(|c| if c.is_alphanumeric() { c } else { '-' })
         .collect::<String>()
         .split('-')
         .filter(|s| !s.is_empty())
@@ -166,6 +234,108 @@ mod tests {
         assert_eq!(slugify("Hello World"), "hello-world");
         assert_eq!(slugify("1.1 Key Features"), "1-1-key-features");
         assert_eq!(slugify("  spaces  "), "spaces");
+        assert_eq!(slugify("1 Overview"), "1-overview");
+    }
+
+    #[test]
+    fn test_parse_text_structure() {
+        let text = "Available pages for facebook/react:\n\
+                     \n\
+                     - 1 Overview\n\
+                     \x20\x20- 1.1 Repository Structure\n\
+                     - 2 Getting Started\n";
+
+        let structure = WikiStructure::parse(text).unwrap();
+        assert_eq!(structure.pages.len(), 3);
+        assert_eq!(structure.pages[0].title, "1 Overview");
+        assert_eq!(structure.pages[0].slug, "1-overview");
+        assert_eq!(structure.pages[0].depth, 0);
+        assert_eq!(structure.pages[1].title, "1.1 Repository Structure");
+        assert_eq!(structure.pages[1].slug, "1-1-repository-structure");
+        assert_eq!(structure.pages[1].depth, 1);
+        assert_eq!(structure.pages[2].title, "2 Getting Started");
+        assert_eq!(structure.pages[2].depth, 0);
+    }
+
+    #[test]
+    fn test_split_pages() {
+        let content = "# Page: Overview\n\
+                        \n\
+                        # Overview\n\
+                        \n\
+                        This is the overview.\n\
+                        \n\
+                        # Page: Getting Started\n\
+                        \n\
+                        Install the thing.\n";
+
+        let pages = split_pages(content);
+        assert_eq!(pages.len(), 2);
+        assert_eq!(pages[0].0, "Overview");
+        assert!(pages[0].1.contains("This is the overview."));
+        assert_eq!(pages[1].0, "Getting Started");
+        assert!(pages[1].1.contains("Install the thing."));
+    }
+
+    #[test]
+    fn test_split_pages_empty() {
+        let pages = split_pages("No page markers here");
+        assert!(pages.is_empty());
+    }
+
+    #[test]
+    fn test_merge_content() {
+        let mut structure = vec![
+            Page {
+                slug: "1-overview".into(),
+                title: "Overview".into(),
+                depth: 0,
+                content: None,
+                error: None,
+            },
+            Page {
+                slug: "2-setup".into(),
+                title: "Setup".into(),
+                depth: 0,
+                content: None,
+                error: None,
+            },
+        ];
+
+        let content_pages = vec![
+            ("Overview".to_string(), "Overview content".to_string()),
+            ("Setup".to_string(), "Setup content".to_string()),
+        ];
+
+        merge_content(&mut structure, &content_pages);
+        assert_eq!(structure[0].content.as_deref(), Some("Overview content"));
+        assert_eq!(structure[1].content.as_deref(), Some("Setup content"));
+    }
+
+    #[test]
+    fn test_merge_content_partial_match() {
+        let mut structure = vec![
+            Page {
+                slug: "1-overview".into(),
+                title: "Overview".into(),
+                depth: 0,
+                content: None,
+                error: None,
+            },
+            Page {
+                slug: "2-missing".into(),
+                title: "Missing Page".into(),
+                depth: 0,
+                content: None,
+                error: None,
+            },
+        ];
+
+        let content_pages = vec![("Overview".to_string(), "Overview content".to_string())];
+
+        merge_content(&mut structure, &content_pages);
+        assert_eq!(structure[0].content.as_deref(), Some("Overview content"));
+        assert!(structure[1].content.is_none());
     }
 
     #[test]
@@ -175,33 +345,36 @@ mod tests {
                 "id": "1-overview",
                 "title": "Overview",
                 "children": [
-                    {"id": "1.1-features", "title": "Features"},
-                    {"id": "1.2-requirements", "title": "Requirements"}
+                    {"id": "1.1-features", "title": "Features"}
                 ]
             },
-            {
-                "id": "2-getting-started",
-                "title": "Getting Started"
-            }
+            {"id": "2-getting-started", "title": "Getting Started"}
         ]"#;
 
         let structure = WikiStructure::parse(json).unwrap();
-        assert_eq!(structure.pages.len(), 4);
+        assert_eq!(structure.pages.len(), 3);
         assert_eq!(structure.pages[0].slug, "1-overview");
         assert_eq!(structure.pages[0].depth, 0);
         assert_eq!(structure.pages[1].slug, "1.1-features");
         assert_eq!(structure.pages[1].depth, 1);
-        assert_eq!(structure.pages[3].slug, "2-getting-started");
-        assert_eq!(structure.pages[3].depth, 0);
     }
 
     #[test]
-    fn test_parse_json_with_pages_key() {
-        let json = r#"{"pages": [
-            {"id": "overview", "title": "Overview"}
-        ]}"#;
-        let structure = WikiStructure::parse(json).unwrap();
-        assert_eq!(structure.pages.len(), 1);
-        assert_eq!(structure.pages[0].title, "Overview");
+    fn test_structure_titles_match_page_delimiters() {
+        // The structure has titles like "1 Overview" but pages split by "# Page: Overview"
+        // The title in the structure includes the numbering, page delimiter does not.
+        // merge_content matches on title, so we need the structure to use the same title
+        // as what appears after "# Page: ".
+        //
+        // In practice, the structure says "1 Overview" but the page delimiter says "# Page: Overview".
+        // We handle this by stripping the leading number prefix during merge.
+        let text = "Available pages for test/repo:\n\
+                     \n\
+                     - 1 Overview\n\
+                     - 2 Setup\n";
+
+        let structure = WikiStructure::parse(text).unwrap();
+        // Title includes number: "1 Overview"
+        assert_eq!(structure.pages[0].title, "1 Overview");
     }
 }

@@ -8,7 +8,10 @@ use anyhow::{Context, Result, bail};
 use reqwest::Client;
 
 use transport::send_request;
-use types::{ContentBlock, JsonRpcRequest, JsonRpcResponse, ToolResult, ToolsList};
+use types::{ContentBlock, JsonRpcRequest, JsonRpcResponse, ToolResult};
+
+#[allow(unused_imports)]
+use types::ToolsList;
 
 const MCP_ENDPOINT: &str = "https://mcp.deepwiki.com/mcp";
 
@@ -103,6 +106,7 @@ impl McpClient {
     }
 
     /// Call `tools/list` to discover available tool schemas.
+    #[allow(dead_code)]
     pub async fn list_tools(&self) -> Result<ToolsList> {
         let request = JsonRpcRequest::new(
             self.next_id(),

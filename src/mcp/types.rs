@@ -34,7 +34,9 @@ impl JsonRpcRequest {
 /// JSON-RPC 2.0 response.
 #[derive(Debug, Deserialize)]
 pub struct JsonRpcResponse {
+    #[allow(dead_code)]
     pub jsonrpc: String,
+    #[allow(dead_code)]
     pub id: Option<u64>,
     pub result: Option<serde_json::Value>,
     pub error: Option<JsonRpcError>,
@@ -44,6 +46,7 @@ pub struct JsonRpcResponse {
 pub struct JsonRpcError {
     pub code: i64,
     pub message: String,
+    #[allow(dead_code)]
     pub data: Option<serde_json::Value>,
 }
 
@@ -69,6 +72,7 @@ pub enum ContentBlock {
 }
 
 /// MCP tool schema from tools/list.
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct ToolInfo {
     pub name: String,
@@ -77,6 +81,7 @@ pub struct ToolInfo {
     pub input_schema: Option<serde_json::Value>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct ToolsList {
     pub tools: Vec<ToolInfo>,

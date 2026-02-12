@@ -18,10 +18,6 @@ struct Cli {
     #[arg(short, long)]
     output: Option<String>,
 
-    /// Max concurrent page fetches
-    #[arg(short = 'j', long, default_value = "4")]
-    concurrency: usize,
-
     /// Output format: markdown or json
     #[arg(short, long, default_value = "markdown")]
     format: OutputFormat,
@@ -105,7 +101,6 @@ async fn main() -> Result<()> {
 
     let config = compiler::CompileConfig {
         repo: repo.clone(),
-        concurrency: cli.concurrency,
         timeout: Duration::from_secs(cli.timeout),
         include: cli.pages,
         exclude: cli.exclude,
