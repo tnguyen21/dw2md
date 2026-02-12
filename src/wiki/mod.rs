@@ -183,9 +183,10 @@ pub fn merge_content(structure: &mut [Page], content_pages: &[(String, String)])
     for page in structure.iter_mut() {
         let stripped_title = strip_number_prefix(&page.title);
 
-        if let Some((_, content)) = content_pages.iter().find(|(title, _)| {
-            *title == page.title || *title == stripped_title
-        }) {
+        if let Some((_, content)) = content_pages
+            .iter()
+            .find(|(title, _)| *title == page.title || *title == stripped_title)
+        {
             page.content = Some(content.clone());
         }
     }

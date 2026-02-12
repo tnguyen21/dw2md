@@ -4,10 +4,10 @@ mod wiki;
 
 use std::time::Duration;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use clap::Parser;
-use dialoguer::MultiSelect;
 use dialoguer::theme::ColorfulTheme;
+use dialoguer::MultiSelect;
 
 /// Crawl a DeepWiki repository and compile all pages into a single, LLM-friendly markdown file.
 #[derive(Parser, Debug)]
@@ -142,7 +142,7 @@ async fn main() -> Result<()> {
             bail!("No pages found for {}", repo);
         }
 
-        let labels: Vec<String> = all_pages.iter().map(|p| format_page_label(p)).collect();
+        let labels: Vec<String> = all_pages.iter().map(format_page_label).collect();
 
         // All selected by default
         let defaults: Vec<bool> = vec![true; all_pages.len()];
@@ -217,7 +217,10 @@ mod tests {
 
     #[test]
     fn test_parse_repo_simple() {
-        assert_eq!(parse_repo("tinygrad/tinygrad").unwrap(), "tinygrad/tinygrad");
+        assert_eq!(
+            parse_repo("tinygrad/tinygrad").unwrap(),
+            "tinygrad/tinygrad"
+        );
     }
 
     #[test]

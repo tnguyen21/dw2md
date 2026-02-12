@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use reqwest::Client;
 
 use super::types::JsonRpcRequest;
@@ -66,7 +66,10 @@ pub async fn send_request(
             session_id: new_session_id,
         })
     } else {
-        let body: serde_json::Value = response.json().await.context("Failed to parse JSON response")?;
+        let body: serde_json::Value = response
+            .json()
+            .await
+            .context("Failed to parse JSON response")?;
         Ok(McpResponse {
             body,
             session_id: new_session_id,

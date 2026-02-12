@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 
 use crate::mcp::McpClient;
-use crate::wiki::{Page, WikiStructure, filter, merge_content, split_pages};
+use crate::wiki::{filter, merge_content, split_pages, Page, WikiStructure};
 
 /// Configuration for the compilation pipeline.
 pub struct CompileConfig {
@@ -21,7 +21,7 @@ pub struct CompileConfig {
 
 /// Fetch just the wiki structure (table of contents), without page contents.
 pub async fn fetch_structure(config: &CompileConfig) -> Result<Vec<Page>> {
-    let client = connect(&config).await?;
+    let client = connect(config).await?;
 
     let structure = fetch_structure_inner(&client, config).await?;
 
@@ -32,7 +32,7 @@ pub async fn fetch_structure(config: &CompileConfig) -> Result<Vec<Page>> {
 
 /// Fetch the wiki structure and all page contents.
 pub async fn fetch_wiki(config: &CompileConfig) -> Result<Vec<Page>> {
-    let client = connect(&config).await?;
+    let client = connect(config).await?;
 
     let structure = fetch_structure_inner(&client, config).await?;
 
@@ -71,7 +71,7 @@ pub async fn fetch_wiki_selected(
     config: &CompileConfig,
     selected_slugs: &[String],
 ) -> Result<Vec<Page>> {
-    let client = connect(&config).await?;
+    let client = connect(config).await?;
 
     let structure = fetch_structure_inner(&client, config).await?;
 
@@ -139,8 +139,8 @@ async fn fetch_structure_inner(
         );
     }
 
-    let structure = WikiStructure::parse(&structure_text)
-        .context("Failed to parse wiki structure")?;
+    let structure =
+        WikiStructure::parse(&structure_text).context("Failed to parse wiki structure")?;
 
     if config.verbose {
         eprintln!("[dw2md] Found {} pages in structure", structure.pages.len());

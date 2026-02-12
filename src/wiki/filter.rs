@@ -1,7 +1,11 @@
 use super::Page;
 
 /// Filter pages based on include/exclude lists of slugs.
-pub fn filter_pages(pages: Vec<Page>, include: &Option<Vec<String>>, exclude: &Option<Vec<String>>) -> Vec<Page> {
+pub fn filter_pages(
+    pages: Vec<Page>,
+    include: &Option<Vec<String>>,
+    exclude: &Option<Vec<String>>,
+) -> Vec<Page> {
     pages
         .into_iter()
         .filter(|page| {
@@ -32,8 +36,7 @@ fn slug_matches(slug: &str, pattern: &str) -> bool {
     }
 
     // Prefix match: pattern "3" matches slug "3-architecture"
-    if slug.starts_with(pattern) {
-        let rest = &slug[pattern.len()..];
+    if let Some(rest) = slug.strip_prefix(pattern) {
         if rest.starts_with('-') || rest.starts_with('.') {
             return true;
         }
@@ -65,7 +68,11 @@ mod tests {
 
     #[test]
     fn test_include_filter() {
-        let pages = vec![make_page("1-overview"), make_page("2-setup"), make_page("3-arch")];
+        let pages = vec![
+            make_page("1-overview"),
+            make_page("2-setup"),
+            make_page("3-arch"),
+        ];
         let include = Some(vec!["1-overview".to_string(), "3-arch".to_string()]);
         let result = filter_pages(pages, &include, &None);
         assert_eq!(result.len(), 2);
@@ -75,7 +82,11 @@ mod tests {
 
     #[test]
     fn test_exclude_filter() {
-        let pages = vec![make_page("1-overview"), make_page("2-setup"), make_page("3-arch")];
+        let pages = vec![
+            make_page("1-overview"),
+            make_page("2-setup"),
+            make_page("3-arch"),
+        ];
         let exclude = Some(vec!["2-setup".to_string()]);
         let result = filter_pages(pages, &None, &exclude);
         assert_eq!(result.len(), 2);

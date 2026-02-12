@@ -34,10 +34,7 @@ pub fn compile(repo: &str, pages: &[Page], include_toc: bool, include_metadata: 
             }
             let indent = "  ".repeat(page.depth);
             let anchor = make_anchor(&page.slug, &page.title);
-            output.push_str(&format!(
-                "{}- [{}](#{})\n",
-                indent, page.title, anchor
-            ));
+            output.push_str(&format!("{}- [{}](#{})\n", indent, page.title, anchor));
         }
         output.push_str("\n---\n\n");
     }
@@ -53,10 +50,7 @@ pub fn compile(repo: &str, pages: &[Page], include_toc: bool, include_metadata: 
             output.push_str("\n---\n\n");
         } else if let Some(err) = &page.error {
             output.push_str(&format!("## {}\n\n", page.title));
-            output.push_str(&format!(
-                "> **Failed to fetch this page:** {}\n",
-                err
-            ));
+            output.push_str(&format!("> **Failed to fetch this page:** {}\n", err));
             output.push_str("\n---\n\n");
         }
     }
@@ -76,7 +70,13 @@ fn make_anchor(slug: &str, title: &str) -> String {
     combined
         .to_lowercase()
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' || c == ' ' { c } else { ' ' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == ' ' {
+                c
+            } else {
+                ' '
+            }
+        })
         .collect::<String>()
         .split_whitespace()
         .collect::<Vec<_>>()
@@ -87,10 +87,8 @@ fn make_anchor(slug: &str, title: &str) -> String {
 /// since each page is already wrapped in an ## H2.
 pub fn bump_headings(content: &str) -> String {
     let re = Regex::new(r"(?m)^(#{1,5}) ").unwrap();
-    re.replace_all(content, |caps: &regex::Captures| {
-        format!("#{} ", &caps[1])
-    })
-    .to_string()
+    re.replace_all(content, |caps: &regex::Captures| format!("#{} ", &caps[1]))
+        .to_string()
 }
 
 #[cfg(test)]
@@ -101,7 +99,10 @@ mod tests {
     fn test_bump_headings() {
         let input = "# Title\n\nSome text\n\n## Subtitle\n\n### Deep\n";
         let result = bump_headings(input);
-        assert_eq!(result, "## Title\n\nSome text\n\n### Subtitle\n\n#### Deep\n");
+        assert_eq!(
+            result,
+            "## Title\n\nSome text\n\n### Subtitle\n\n#### Deep\n"
+        );
     }
 
     #[test]

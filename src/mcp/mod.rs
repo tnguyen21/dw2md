@@ -4,7 +4,7 @@ pub mod types;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use reqwest::Client;
 
 use transport::send_request;
@@ -87,10 +87,8 @@ impl McpClient {
         }
 
         // Send initialized notification
-        let notification = JsonRpcRequest::notification(
-            "notifications/initialized",
-            serde_json::json!({}),
-        );
+        let notification =
+            JsonRpcRequest::notification("notifications/initialized", serde_json::json!({}));
 
         // Notification response is best-effort — ignore errors
         let _ = send_request(
@@ -108,15 +106,11 @@ impl McpClient {
     /// Call `tools/list` to discover available tool schemas.
     #[allow(dead_code)]
     pub async fn list_tools(&self) -> Result<ToolsList> {
-        let request = JsonRpcRequest::new(
-            self.next_id(),
-            "tools/list",
-            serde_json::json!({}),
-        );
+        let request = JsonRpcRequest::new(self.next_id(), "tools/list", serde_json::json!({}));
 
         let resp = self.send(&request).await?;
-        let rpc: JsonRpcResponse = serde_json::from_value(resp)
-            .context("Failed to parse tools/list response")?;
+        let rpc: JsonRpcResponse =
+            serde_json::from_value(resp).context("Failed to parse tools/list response")?;
 
         if let Some(err) = rpc.error {
             bail!("tools/list failed: {}", err);
@@ -140,8 +134,8 @@ impl McpClient {
         );
 
         let resp = self.send(&request).await?;
-        let rpc: JsonRpcResponse = serde_json::from_value(resp)
-            .context("Failed to parse tool call response")?;
+        let rpc: JsonRpcResponse =
+            serde_json::from_value(resp).context("Failed to parse tool call response")?;
 
         if let Some(err) = rpc.error {
             bail!("Tool '{}' returned error: {}", name, err);

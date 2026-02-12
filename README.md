@@ -10,9 +10,23 @@ DeepWiki generates excellent structured documentation for open-source repositori
 
 ## Install
 
+### From crates.io (recommended)
+
 ```bash
+cargo install dw2md
+```
+
+### From source
+
+```bash
+git clone https://github.com/yourusername/dw2md
+cd dw2md
 cargo install --path .
 ```
+
+### Pre-built binaries
+
+Download from [GitHub Releases](https://github.com/yourusername/dw2md/releases) for Linux, macOS (x86_64/ARM64), and Windows.
 
 Produces a single static binary (~6MB, no OpenSSL dependency).
 
@@ -191,6 +205,14 @@ Useful for feeding individual pages into separate context windows, building retr
 4. **Match & compile** — split content by page markers, match to structure, assemble output
 
 Failed requests are retried 3 times with exponential backoff (1s, 2s, 4s).
+
+## Contributing
+
+Contributions welcome! Please ensure:
+
+- All tests pass: `cargo test`
+- Code is formatted: `cargo fmt`
+- Clippy is happy: `cargo clippy`
 
 ## License
 
