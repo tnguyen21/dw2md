@@ -360,6 +360,32 @@ mod tests {
     }
 
     #[test]
+    fn test_strip_number_prefix() {
+        assert_eq!(strip_number_prefix("1 Overview"), "Overview");
+        assert_eq!(strip_number_prefix("1.1 Key Features"), "Key Features");
+        assert_eq!(strip_number_prefix("3.2.1 Deep Topic"), "Deep Topic");
+        assert_eq!(strip_number_prefix("No Number"), "No Number");
+        assert_eq!(strip_number_prefix(""), "");
+        assert_eq!(strip_number_prefix("42"), "42");
+    }
+
+    #[test]
+    fn test_merge_with_numbered_titles() {
+        // Structure has "1 Overview" but content has "Overview"
+        let mut structure = vec![Page {
+            slug: "1-overview".into(),
+            title: "1 Overview".into(),
+            depth: 0,
+            content: None,
+            error: None,
+        }];
+
+        let content_pages = vec![("Overview".to_string(), "Content here".to_string())];
+        merge_content(&mut structure, &content_pages);
+        assert_eq!(structure[0].content.as_deref(), Some("Content here"));
+    }
+
+    #[test]
     fn test_structure_titles_match_page_delimiters() {
         // The structure has titles like "1 Overview" but pages split by "# Page: Overview"
         // The title in the structure includes the numbering, page delimiter does not.
