@@ -60,14 +60,8 @@ pub fn compile(repo: &str, pages: &[Page], include_toc: bool, include_metadata: 
 }
 
 /// Create an anchor slug for the table of contents.
-fn make_anchor(slug: &str, title: &str) -> String {
-    let combined = if slug.is_empty() {
-        title.to_string()
-    } else {
-        title.to_string()
-    };
-
-    combined
+fn make_anchor(_slug: &str, title: &str) -> String {
+    title
         .to_lowercase()
         .chars()
         .map(|c| {

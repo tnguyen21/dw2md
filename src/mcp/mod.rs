@@ -43,6 +43,7 @@ impl McpClient {
     }
 
     #[cfg(test)]
+    #[allow(dead_code)]
     pub fn with_endpoint(endpoint: String, timeout: Duration) -> Self {
         Self {
             client: Client::new(),
@@ -172,8 +173,8 @@ impl McpClient {
 fn extract_text(blocks: &[ContentBlock]) -> String {
     blocks
         .iter()
-        .filter_map(|b| match b {
-            ContentBlock::Text { text } => Some(text.as_str()),
+        .map(|b| match b {
+            ContentBlock::Text { text } => text.as_str(),
         })
         .collect::<Vec<_>>()
         .join("")
