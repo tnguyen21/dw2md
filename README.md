@@ -16,6 +16,10 @@ DeepWiki generates excellent structured documentation for open-source repositori
 cargo install dw2md
 ```
 
+### Homebrew (macOS/Linux)
+
+> **Coming soon!** Homebrew tap is in progress.
+
 ### From source
 
 ```bash
