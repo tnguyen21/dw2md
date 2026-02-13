@@ -57,7 +57,7 @@ dw2md [OPTIONS] <REPO>
 | `--timeout <SECS>`   | `-t`  | `30`       | Per-request timeout in seconds                 |
 | `--pages <FILTER>`   | `-p`  | all        | Comma-separated page slugs to include          |
 | `--exclude <FILTER>` | `-x`  | none       | Comma-separated page slugs to exclude          |
-| `--no-toc`           |       |            | Omit the table of contents                     |
+| `--no-toc`           |       |            | Omit the structure tree from output             |
 | `--no-metadata`      |       |            | Omit the metadata header                       |
 | `--list`             | `-l`  |            | Print the table of contents and exit           |
 | `--interactive`      | `-i`  |            | Interactively select which sections to include |
@@ -85,11 +85,12 @@ dw2md tinygrad/tinygrad --list
 ```
 
 ```
-- 1 Overview [1-overview]
-  - 1.1 Repository Structure and Packages [1-1-repository-structure-and-packages]
-- 2 Feature Flags System [2-feature-flags-system]
-- 3 Build System and Package Distribution [3-build-system-and-package-distribution]
-  ...
+├── 1 Overview [1-overview]
+│   └── 1.1 Repository Structure and Packages [1-1-repository-structure-and-packages]
+├── 2 Feature Flags System [2-feature-flags-system]
+├── 3 Build System and Package Distribution [3-build-system-and-package-distribution]
+│   ...
+└── 7 Developer Tools and Debugging [7-developer-tools-and-debugging]
 ```
 
 **Interactively pick which sections to include:**
@@ -134,7 +135,7 @@ dw2md tinygrad/tinygrad --no-toc --no-metadata
 
 ### Markdown (default)
 
-The compiled document looks like this:
+The output format is designed for LLM and agent workflows — a tree-structured table of contents for fast orientation, and grep-friendly section delimiters so agents can selectively extract the sections they need.
 
 ```markdown
 <!-- dw2md v0.1.0 | tinygrad/tinygrad | 2026-02-12T15:30:00Z | 29 pages -->
@@ -144,34 +145,54 @@ The compiled document looks like this:
 > Compiled from https://deepwiki.com/tinygrad/tinygrad
 > Generated: 2026-02-12T15:30:00Z | Pages: 29
 
-## Table of Contents
+## Structure
 
-- [1 Overview](#1-overview)
-  - [1.1 Repository Structure and Packages](#1-1-repository-structure-and-packages)
-- [2 Feature Flags System](#2-feature-flags-system)
-  ...
+├── 1 Overview
+│   └── 1.1 Repository Structure and Packages
+├── 2 Feature Flags System
+├── 3 Build System and Package Distribution
+│   ├── 3.1 Setup.py and Package Config
+│   └── 3.2 CI/CD Pipeline
+└── 4 Core Architecture
 
----
+## Contents
 
-## 1 Overview
+<<< SECTION: 1 Overview [1-overview] >>>
 
-[page content with headings bumped down one level]
+[page content with original heading levels preserved]
 
----
-
-## 1.1 Repository Structure and Packages
+<<< SECTION: 1.1 Repository Structure and Packages [1-1-repository-structure-and-packages] >>>
 
 [page content]
 
----
+<<< SECTION: 2 Feature Flags System [2-feature-flags-system] >>>
+
+[page content]
 ```
 
-Design choices for LLM-friendliness:
+#### Why this format?
 
+The `<<< SECTION: Title [slug] >>>` delimiter is designed to be trivially grep-able:
+
+```bash
+# List all sections in a compiled wiki
+grep "^<<< SECTION:" wiki.md
+
+# Extract a specific section (content between two delimiters)
+sed -n '/^<<< SECTION: 1 Overview/,/^<<< SECTION:/p' wiki.md
+
+# Regex captures both title and slug in one match
+# ^<<< SECTION: (.+?) \[(.+?)\] >>>$
+```
+
+This matters because LLMs and agents working with large documents need to scan structure cheaply, then pull in only the sections relevant to their current task — rather than stuffing the entire document into context.
+
+Other format choices:
+
+- **Tree TOC** — `├──`/`└──` characters show hierarchy at a glance (same as `tree` command), scannable faster than indented bullet lists
+- **Original heading levels preserved** — no heading-level bumping; the delimiter handles section boundaries, so page content keeps its source structure
+- **Token efficient** — no repeated horizontal rules (`---`), no anchor link markup, no extra `#` characters from heading bumping
 - **HTML comment on line 1** — machine-parseable metadata invisible to most renderers
-- **Flat heading structure** — each page becomes `## H2`, internal headings bumped down one level to avoid collisions
-- **Horizontal rules** between pages for clear separation
-- **Inline TOC** so LLMs can navigate without reading linearly
 - **Mermaid blocks preserved** as fenced code blocks
 - **Source annotations preserved** (`Sources: file.py:1-50`) for code location context
 

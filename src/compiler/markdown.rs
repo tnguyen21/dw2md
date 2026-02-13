@@ -1,7 +1,6 @@
 use crate::wiki::Page;
-use regex::Regex;
 
-/// Compile pages into a single markdown document.
+/// Compile pages into a single markdown document with tree TOC and grep-able section delimiters.
 pub fn compile(repo: &str, pages: &[Page], include_toc: bool, include_metadata: bool) -> String {
     let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
     let page_count = pages.iter().filter(|p| p.content.is_some()).count();
@@ -25,64 +24,113 @@ pub fn compile(repo: &str, pages: &[Page], include_toc: bool, include_metadata: 
         ));
     }
 
-    // Table of contents
+    // Tree-style structure
     if include_toc {
-        output.push_str("## Table of Contents\n\n");
+        let tree_pages: Vec<Page> = pages
+            .iter()
+            .filter(|p| p.content.is_some() || p.error.is_some())
+            .cloned()
+            .collect();
+        output.push_str("## Structure\n\n");
+        output.push_str(&render_tree(&tree_pages, false));
+        output.push('\n');
+    }
+
+    // Section contents
+    let has_content = pages
+        .iter()
+        .any(|p| p.content.is_some() || p.error.is_some());
+    if has_content {
+        if include_toc {
+            output.push_str("## Contents\n\n");
+        }
         for page in pages {
-            if page.content.is_none() && page.error.is_none() {
-                continue;
-            }
-            let indent = "  ".repeat(page.depth);
-            let anchor = make_anchor(&page.slug, &page.title);
-            output.push_str(&format!("{}- [{}](#{})\n", indent, page.title, anchor));
-        }
-        output.push_str("\n---\n\n");
-    }
-
-    // Page contents
-    for page in pages {
-        if let Some(content) = &page.content {
-            output.push_str(&format!("## {}\n\n", page.title));
-            output.push_str(&bump_headings(content));
-            if !content.ends_with('\n') {
+            if let Some(content) = &page.content {
+                output.push_str(&format!(
+                    "<<< SECTION: {} [{}] >>>\n\n",
+                    page.title, page.slug
+                ));
+                output.push_str(content);
+                if !content.ends_with('\n') {
+                    output.push('\n');
+                }
                 output.push('\n');
+            } else if let Some(err) = &page.error {
+                output.push_str(&format!(
+                    "<<< SECTION: {} [{}] >>>\n\n",
+                    page.title, page.slug
+                ));
+                output.push_str(&format!("> **Failed to fetch this page:** {}\n\n", err));
             }
-            output.push_str("\n---\n\n");
-        } else if let Some(err) = &page.error {
-            output.push_str(&format!("## {}\n\n", page.title));
-            output.push_str(&format!("> **Failed to fetch this page:** {}\n", err));
-            output.push_str("\n---\n\n");
         }
     }
 
-    // Trim trailing whitespace
     output.trim_end().to_string()
 }
 
-/// Create an anchor slug for the table of contents.
-fn make_anchor(_slug: &str, title: &str) -> String {
-    title
-        .to_lowercase()
-        .chars()
-        .map(|c| {
-            if c.is_alphanumeric() || c == '-' || c == ' ' {
-                c
+/// Render pages as an ASCII tree.
+///
+/// When `show_slugs` is true, appends `[slug]` after each title (useful for `--list` mode).
+pub fn render_tree(pages: &[Page], show_slugs: bool) -> String {
+    let mut result = String::new();
+    let n = pages.len();
+
+    for i in 0..n {
+        let page = &pages[i];
+        let mut prefix = String::new();
+
+        // Ancestor depth prefixes
+        for d in 0..page.depth {
+            if has_future_at_depth(pages, i, d) {
+                prefix.push_str("│   ");
             } else {
-                ' '
+                prefix.push_str("    ");
             }
-        })
-        .collect::<String>()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join("-")
+        }
+
+        // Connector
+        if is_last_sibling(pages, i) {
+            prefix.push_str("└── ");
+        } else {
+            prefix.push_str("├── ");
+        }
+
+        result.push_str(&prefix);
+        result.push_str(&page.title);
+        if show_slugs {
+            result.push_str(&format!(" [{}]", page.slug));
+        }
+        result.push('\n');
+    }
+
+    result
 }
 
-/// Bump all markdown headings in content down by one level (# -> ##, ## -> ###, etc.)
-/// since each page is already wrapped in an ## H2.
-pub fn bump_headings(content: &str) -> String {
-    let re = Regex::new(r"(?m)^(#{1,5}) ").unwrap();
-    re.replace_all(content, |caps: &regex::Captures| format!("#{} ", &caps[1]))
-        .to_string()
+/// Check if the page at `index` is the last sibling at its depth.
+fn is_last_sibling(pages: &[Page], index: usize) -> bool {
+    let depth = pages[index].depth;
+    for page in &pages[(index + 1)..] {
+        if page.depth < depth {
+            return true;
+        }
+        if page.depth == depth {
+            return false;
+        }
+    }
+    true
+}
+
+/// Check if there's a future page at `target_depth` after `current`.
+fn has_future_at_depth(pages: &[Page], current: usize, target_depth: usize) -> bool {
+    for page in &pages[(current + 1)..] {
+        if page.depth < target_depth {
+            return false;
+        }
+        if page.depth == target_depth {
+            return true;
+        }
+    }
+    false
 }
 
 #[cfg(test)]
@@ -90,42 +138,135 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_bump_headings() {
-        let input = "# Title\n\nSome text\n\n## Subtitle\n\n### Deep\n";
-        let result = bump_headings(input);
+    fn test_render_tree_basic() {
+        let pages = vec![
+            Page {
+                slug: "1-overview".into(),
+                title: "1 Overview".into(),
+                depth: 0,
+                content: None,
+                error: None,
+            },
+            Page {
+                slug: "1-1-repo".into(),
+                title: "1.1 Repo Structure".into(),
+                depth: 1,
+                content: None,
+                error: None,
+            },
+            Page {
+                slug: "2-setup".into(),
+                title: "2 Setup".into(),
+                depth: 0,
+                content: None,
+                error: None,
+            },
+        ];
+
+        let result = render_tree(&pages, false);
         assert_eq!(
             result,
-            "## Title\n\nSome text\n\n### Subtitle\n\n#### Deep\n"
+            "├── 1 Overview\n│   └── 1.1 Repo Structure\n└── 2 Setup\n"
         );
     }
 
     #[test]
-    fn test_bump_headings_no_headings() {
-        let input = "Just plain text\nNo headings here\n";
-        assert_eq!(bump_headings(input), input);
-    }
+    fn test_render_tree_with_slugs() {
+        let pages = vec![
+            Page {
+                slug: "1-overview".into(),
+                title: "1 Overview".into(),
+                depth: 0,
+                content: None,
+                error: None,
+            },
+            Page {
+                slug: "2-setup".into(),
+                title: "2 Setup".into(),
+                depth: 0,
+                content: None,
+                error: None,
+            },
+        ];
 
-    #[test]
-    fn test_bump_headings_preserves_hash_in_code() {
-        let input = "# Heading\n\n```\n# this is a comment\n```\n";
-        let result = bump_headings(input);
-        // The regex is line-based, so it will bump the comment too.
-        // This is acceptable — code blocks with # comments at line start are rare
-        // and the trade-off is worth the simplicity.
-        assert!(result.starts_with("## Heading"));
-    }
-
-    #[test]
-    fn test_make_anchor() {
-        assert_eq!(make_anchor("1-overview", "Overview"), "overview");
+        let result = render_tree(&pages, true);
         assert_eq!(
-            make_anchor("1.1-key-features", "Key Features"),
-            "key-features"
+            result,
+            "├── 1 Overview [1-overview]\n└── 2 Setup [2-setup]\n"
         );
-        assert_eq!(
-            make_anchor("", "Getting Started Guide"),
-            "getting-started-guide"
-        );
+    }
+
+    #[test]
+    fn test_render_tree_deep_nesting() {
+        let pages = vec![
+            Page {
+                slug: "1-a".into(),
+                title: "1 A".into(),
+                depth: 0,
+                content: None,
+                error: None,
+            },
+            Page {
+                slug: "1-1-b".into(),
+                title: "1.1 B".into(),
+                depth: 1,
+                content: None,
+                error: None,
+            },
+            Page {
+                slug: "1-1-1-c".into(),
+                title: "1.1.1 C".into(),
+                depth: 2,
+                content: None,
+                error: None,
+            },
+            Page {
+                slug: "1-1-2-d".into(),
+                title: "1.1.2 D".into(),
+                depth: 2,
+                content: None,
+                error: None,
+            },
+            Page {
+                slug: "1-2-e".into(),
+                title: "1.2 E".into(),
+                depth: 1,
+                content: None,
+                error: None,
+            },
+            Page {
+                slug: "2-f".into(),
+                title: "2 F".into(),
+                depth: 0,
+                content: None,
+                error: None,
+            },
+        ];
+
+        let result = render_tree(&pages, false);
+        let expected = "\
+├── 1 A
+│   ├── 1.1 B
+│   │   ├── 1.1.1 C
+│   │   └── 1.1.2 D
+│   └── 1.2 E
+└── 2 F
+";
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_render_tree_single() {
+        let pages = vec![Page {
+            slug: "1-overview".into(),
+            title: "1 Overview".into(),
+            depth: 0,
+            content: None,
+            error: None,
+        }];
+
+        let result = render_tree(&pages, false);
+        assert_eq!(result, "└── 1 Overview\n");
     }
 
     #[test]
@@ -133,14 +274,14 @@ mod tests {
         let pages = vec![
             Page {
                 slug: "1-overview".into(),
-                title: "Overview".into(),
+                title: "1 Overview".into(),
                 depth: 0,
                 content: Some("# Intro\n\nHello world.".into()),
                 error: None,
             },
             Page {
                 slug: "2-setup".into(),
-                title: "Setup".into(),
+                title: "2 Setup".into(),
                 depth: 0,
                 content: Some("Install it.".into()),
                 error: None,
@@ -150,34 +291,39 @@ mod tests {
         let result = compile("test/repo", &pages, true, true);
         assert!(result.contains("<!-- dw2md v0.1.0 | test/repo"));
         assert!(result.contains("# test/repo — DeepWiki"));
-        assert!(result.contains("## Table of Contents"));
-        assert!(result.contains("- [Overview](#overview)"));
-        assert!(result.contains("- [Setup](#setup)"));
-        assert!(result.contains("## Overview"));
-        assert!(result.contains("## Intro")); // bumped from # to ##
-        assert!(result.contains("## Setup"));
+        assert!(result.contains("## Structure"));
+        assert!(result.contains("├── 1 Overview"));
+        assert!(result.contains("└── 2 Setup"));
+        assert!(result.contains("## Contents"));
+        assert!(result.contains("<<< SECTION: 1 Overview [1-overview] >>>"));
+        assert!(result.contains("<<< SECTION: 2 Setup [2-setup] >>>"));
+        // Content is NOT heading-bumped — original levels preserved
+        assert!(result.contains("# Intro"));
+        assert!(result.contains("Hello world."));
+        assert!(result.contains("Install it."));
     }
 
     #[test]
     fn test_compile_no_toc() {
         let pages = vec![Page {
             slug: "1-overview".into(),
-            title: "Overview".into(),
+            title: "1 Overview".into(),
             depth: 0,
             content: Some("Hello.".into()),
             error: None,
         }];
 
         let result = compile("test/repo", &pages, false, true);
-        assert!(!result.contains("Table of Contents"));
-        assert!(result.contains("## Overview"));
+        assert!(!result.contains("## Structure"));
+        assert!(!result.contains("## Contents"));
+        assert!(result.contains("<<< SECTION: 1 Overview [1-overview] >>>"));
     }
 
     #[test]
     fn test_compile_no_metadata() {
         let pages = vec![Page {
             slug: "1-overview".into(),
-            title: "Overview".into(),
+            title: "1 Overview".into(),
             depth: 0,
             content: Some("Hello.".into()),
             error: None,
@@ -187,6 +333,7 @@ mod tests {
         assert!(!result.contains("<!-- dw2md"));
         assert!(!result.contains("Compiled from"));
         assert!(result.contains("# test/repo — DeepWiki"));
+        assert!(result.contains("<<< SECTION:"));
     }
 
     #[test]
@@ -194,14 +341,14 @@ mod tests {
         let pages = vec![
             Page {
                 slug: "1-overview".into(),
-                title: "Overview".into(),
+                title: "1 Overview".into(),
                 depth: 0,
                 content: Some("Hello.".into()),
                 error: None,
             },
             Page {
                 slug: "2-broken".into(),
-                title: "Broken Page".into(),
+                title: "2 Broken Page".into(),
                 depth: 0,
                 content: None,
                 error: Some("Timeout after 30s".into()),
@@ -209,8 +356,42 @@ mod tests {
         ];
 
         let result = compile("test/repo", &pages, true, true);
-        assert!(result.contains("## Broken Page"));
+        assert!(result.contains("<<< SECTION: 2 Broken Page [2-broken] >>>"));
         assert!(result.contains("Failed to fetch this page"));
         assert!(result.contains("Timeout after 30s"));
+    }
+
+    #[test]
+    fn test_section_delimiter_is_grepable() {
+        let pages = vec![
+            Page {
+                slug: "1-overview".into(),
+                title: "1 Overview".into(),
+                depth: 0,
+                content: Some("Content A.".into()),
+                error: None,
+            },
+            Page {
+                slug: "2-setup".into(),
+                title: "2 Setup".into(),
+                depth: 0,
+                content: Some("Content B.".into()),
+                error: None,
+            },
+        ];
+
+        let result = compile("test/repo", &pages, false, false);
+
+        // Every section delimiter matches a single regex
+        let re = regex::Regex::new(r"^<<< SECTION: (.+?) \[(.+?)\] >>>$").unwrap();
+        let matches: Vec<_> = result
+            .lines()
+            .filter_map(|line| re.captures(line))
+            .collect();
+        assert_eq!(matches.len(), 2);
+        assert_eq!(&matches[0][1], "1 Overview");
+        assert_eq!(&matches[0][2], "1-overview");
+        assert_eq!(&matches[1][1], "2 Setup");
+        assert_eq!(&matches[1][2], "2-setup");
     }
 }
