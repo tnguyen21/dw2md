@@ -3,7 +3,7 @@
 Grab an entire [DeepWiki](https://deepwiki.com) and compile it into a single markdown file — ready to drop into an LLM context window.
 
 ```bash
-dw2md tinygrad/tinygrad -o react-wiki.md
+dw2md tinygrad/tinygrad -o tinygrad-wiki.md
 ```
 
 DeepWiki generates excellent structured documentation for open-source repositories, but it's spread across dozens of client-rendered pages with no export button. `dw2md` talks directly to DeepWiki's MCP server to pull the full wiki structure and contents, then assembles everything into one clean document.
