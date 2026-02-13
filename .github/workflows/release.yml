@@ -14,8 +14,12 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
+      version: ${{ steps.get_version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+      - name: Get version from tag
+        id: get_version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -84,6 +88,107 @@ jobs:
           asset_path: ./target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
           asset_name: ${{ matrix.asset_name }}
           asset_content_type: application/octet-stream
+
+      - name: Build .deb package (linux-gnu only)
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: |
+          VERSION="${{ needs.create-release.outputs.version }}"
+          mkdir -p pkg/usr/bin pkg/DEBIAN
+          cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} pkg/usr/bin/dw2md
+          cat > pkg/DEBIAN/control <<EOF
+          Package: dw2md
+          Version: ${VERSION}
+          Architecture: amd64
+          Maintainer: nwyin <nwyin@hey.com>
+          Description: Crawl a DeepWiki repo and compile all pages into markdown
+           Talks to DeepWiki's MCP server to pull wiki structure and contents,
+           then assembles everything into a single LLM-friendly document.
+          Homepage: https://github.com/tnguyen21/dw2md
+          License: MIT
+          EOF
+          dpkg-deb --root-owner-group --build pkg "dw2md_${VERSION}_amd64.deb"
+
+      - name: Upload .deb Release Asset
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./dw2md_${{ needs.create-release.outputs.version }}_amd64.deb
+          asset_name: dw2md_${{ needs.create-release.outputs.version }}_amd64.deb
+          asset_content_type: application/vnd.debian.binary-package
+
+  update-homebrew:
+    name: Update Homebrew Formula
+    needs: [create-release, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release binaries
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.create-release.outputs.version }}
+        run: |
+          for asset in dw2md-macos-aarch64 dw2md-macos-x86_64 dw2md-linux-x86_64-musl; do
+            curl -fLO "https://github.com/tnguyen21/dw2md/releases/download/v${VERSION}/${asset}"
+          done
+
+      - name: Compute SHA256 checksums
+        id: sha
+        run: |
+          echo "macos_aarch64=$(sha256sum dw2md-macos-aarch64 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "macos_x86_64=$(sha256sum dw2md-macos-x86_64 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "linux_musl=$(sha256sum dw2md-linux-x86_64-musl | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Generate and push formula
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ needs.create-release.outputs.version }}
+          SHA_MACOS_AARCH64: ${{ steps.sha.outputs.macos_aarch64 }}
+          SHA_MACOS_X86_64: ${{ steps.sha.outputs.macos_x86_64 }}
+          SHA_LINUX_MUSL: ${{ steps.sha.outputs.linux_musl }}
+        run: |
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/tnguyen21/homebrew-dw2md.git" tap
+          mkdir -p tap/Formula
+
+          cat > tap/Formula/dw2md.rb <<RUBY
+          class Dw2md < Formula
+            desc "Crawl a DeepWiki repository and compile all pages into markdown"
+            homepage "https://github.com/tnguyen21/dw2md"
+            version "${VERSION}"
+            license "MIT"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/tnguyen21/dw2md/releases/download/v${VERSION}/dw2md-macos-aarch64"
+                sha256 "${SHA_MACOS_AARCH64}"
+              else
+                url "https://github.com/tnguyen21/dw2md/releases/download/v${VERSION}/dw2md-macos-x86_64"
+                sha256 "${SHA_MACOS_X86_64}"
+              end
+            end
+
+            on_linux do
+              url "https://github.com/tnguyen21/dw2md/releases/download/v${VERSION}/dw2md-linux-x86_64-musl"
+              sha256 "${SHA_LINUX_MUSL}"
+            end
+
+            def install
+              bin.install stable.url.split("/").last => "dw2md"
+            end
+
+            test do
+              assert_match "dw2md", shell_output("#{bin}/dw2md --version")
+            end
+          end
+          RUBY
+
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/dw2md.rb
+          git commit -m "Update dw2md to ${VERSION}"
+          git push
 
   publish-crates:
     name: Publish to crates.io
