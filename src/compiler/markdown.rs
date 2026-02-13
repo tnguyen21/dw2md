@@ -10,7 +10,10 @@ pub fn compile(repo: &str, pages: &[Page], include_toc: bool, include_metadata: 
     if include_metadata {
         output.push_str(&format!(
             "<!-- dw2md v{} | {} | {} | {} pages -->\n\n",
-            env!("CARGO_PKG_VERSION"), repo, now, page_count
+            env!("CARGO_PKG_VERSION"),
+            repo,
+            now,
+            page_count
         ));
     }
 
@@ -293,7 +296,10 @@ mod tests {
         ];
 
         let result = compile("test/repo", &pages, true, true);
-        assert!(result.contains(&format!("<!-- dw2md v{} | test/repo", env!("CARGO_PKG_VERSION"))));
+        assert!(result.contains(&format!(
+            "<!-- dw2md v{} | test/repo",
+            env!("CARGO_PKG_VERSION")
+        )));
         assert!(result.contains("# test/repo — DeepWiki"));
         assert!(result.contains("## Structure"));
         assert!(result.contains("├── 1 Overview"));
