@@ -9,8 +9,8 @@ pub fn compile(repo: &str, pages: &[Page], include_toc: bool, include_metadata: 
     // Metadata comment
     if include_metadata {
         output.push_str(&format!(
-            "<!-- dw2md v0.2.0 | {} | {} | {} pages -->\n\n",
-            repo, now, page_count
+            "<!-- dw2md v{} | {} | {} | {} pages -->\n\n",
+            env!("CARGO_PKG_VERSION"), repo, now, page_count
         ));
     }
 
@@ -22,6 +22,10 @@ pub fn compile(repo: &str, pages: &[Page], include_toc: bool, include_metadata: 
             "> Compiled from https://deepwiki.com/{}\n> Generated: {} | Pages: {}\n\n",
             repo, now, page_count
         ));
+        output.push_str("## Format\n\n");
+        output.push_str("Sections are delimited by `<<< SECTION: Title [slug] >>>` lines.\n");
+        output.push_str("Grep for `^<<< SECTION:` to list all sections.\n");
+        output.push_str("The Structure tree below shows hierarchy; slugs in brackets are unique identifiers.\n\n");
     }
 
     // Tree-style structure
@@ -289,7 +293,7 @@ mod tests {
         ];
 
         let result = compile("test/repo", &pages, true, true);
-        assert!(result.contains("<!-- dw2md v0.2.0 | test/repo"));
+        assert!(result.contains(&format!("<!-- dw2md v{} | test/repo", env!("CARGO_PKG_VERSION"))));
         assert!(result.contains("# test/repo — DeepWiki"));
         assert!(result.contains("## Structure"));
         assert!(result.contains("├── 1 Overview"));
