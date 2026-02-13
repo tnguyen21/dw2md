@@ -105,7 +105,7 @@ dw2md tinygrad/tinygrad --list
 **Interactively pick which sections to include:**
 
 ```bash
-dw2md tinygrad/tinygrad -i -o react-wiki.md
+dw2md tinygrad/tinygrad -i -o tinygrad-wiki.md
 ```
 
 Shows a multi-select prompt where you can toggle sections on/off with space, then press enter to fetch only what you selected. All sections are selected by default.
