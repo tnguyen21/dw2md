@@ -146,7 +146,7 @@ dw2md [OPTIONS] <REPO>
 | `--timeout <SECS>`   | `-t`  | `30`       | Per-request timeout in seconds                                              |
 | `--pages <FILTER>`   | `-p`  | all        | Comma-separated page slugs to include (e.g. `1-overview,3.1-data-pipeline`) |
 | `--exclude <FILTER>` | `-x`  | none       | Comma-separated page slugs to exclude                                       |
-| `--no-toc`           |       | false      | Omit the generated table of contents from output                            |
+| `--no-toc`           |       | false      | Omit the structure tree from output                                         |
 | `--no-metadata`      |       | false      | Omit the metadata header block                                              |
 | `--quiet`            | `-q`  | false      | Suppress progress output on stderr                                          |
 | `--verbose`          | `-v`  | false      | Show detailed progress and debug info                                       |
@@ -176,6 +176,11 @@ dw2md https://deepwiki.com/tokio-rs/tokio -o tokio.md
 
 ### Markdown (default)
 
+The markdown output is designed for LLM and agent workflows. The two key design goals are:
+
+1. **Fast structural scanning** — an agent should be able to read the table of contents and understand the document's hierarchy without processing the full content.
+2. **Selective extraction** — an agent should be able to `grep` for a section delimiter and extract only the sections relevant to its current task, rather than stuffing the entire document into context.
+
 The compiled document follows this structure:
 
 ```markdown
@@ -186,39 +191,66 @@ The compiled document follows this structure:
 > Compiled from https://deepwiki.com/tinygrad/tinygrad
 > Generated: 2026-02-12T15:30:00Z | Pages: 47
 
-## Table of Contents
+## Structure
 
-- [1. Overview](#1-overview)
-  - [1.1 Key Features](#11-key-features)
-  - [1.2 System Requirements](#12-system-requirements)
-- [2. Getting Started](#2-getting-started)
-  ...
+├── 1 Overview
+│   ├── 1.1 Key Features
+│   └── 1.2 System Requirements
+├── 2 Getting Started
+│   ...
+└── 8 API Reference
 
----
+## Contents
 
-## 1. Overview
+<<< SECTION: 1 Overview [1-overview] >>>
 
-[page content as-is from DeepWiki]
+[page content with original heading levels preserved]
 
----
-
-## 1.1 Key Features
+<<< SECTION: 1.1 Key Features [1-1-key-features] >>>
 
 [page content]
 
----
+<<< SECTION: 2 Getting Started [2-getting-started] >>>
 
-...
+[page content]
 ```
 
-Design decisions for LLM-friendliness:
+#### Section delimiters
 
-- **HTML comment metadata on line 1** — machine-parseable but invisible to most renderers, lets an LLM or tool quickly identify the document without reading the whole thing.
-- **Flat heading structure** — each page becomes an `## H2` section. DeepWiki page content already uses its own heading hierarchy starting at `#`, so `dw2md` prefixes each page as an H2 and bumps internal headings down by one level to avoid collisions.
-- **Horizontal rules between pages** — clear visual and semantic separation.
-- **Inline table of contents** — helps LLMs navigate to relevant sections without reading linearly.
-- **Source links stripped** — DeepWiki pages contain `Sources: file.py:1-50` annotations linking to GitHub. These are preserved as-is since they provide useful context about code locations.
-- **Mermaid blocks preserved** — left as fenced code blocks (` ```mermaid `). Many LLMs can interpret these.
+Each page is preceded by a delimiter line with the format:
+
+```
+<<< SECTION: {title} [{slug}] >>>
+```
+
+This is designed to be trivially grep-able by agents and scripts:
+
+```bash
+# List all sections
+grep "^<<< SECTION:" wiki.md
+
+# Extract a specific section (content between two delimiters)
+sed -n '/^<<< SECTION: 1 Overview/,/^<<< SECTION:/p' wiki.md
+
+# Regex to capture title and slug
+# ^<<< SECTION: (.+?) \[(.+?)\] >>>$
+```
+
+The slug in `[brackets]` is the same identifier used by `--pages` and `--exclude` flags, so an agent can discover slugs from the structure, then re-invoke `dw2md` with `--pages` to fetch only what it needs.
+
+#### Tree table of contents
+
+The `## Structure` section uses ASCII tree characters (`├──`, `└──`, `│`) — the same visual language as the Unix `tree` command. This is more scannable than indented bullet lists and conveys hierarchy at a glance.
+
+When `--no-toc` is passed, the structure tree and the `## Contents` header are both omitted; section delimiters go directly after the metadata.
+
+#### Design decisions
+
+- **Original heading levels preserved** — page content keeps its source heading structure. No heading-level bumping is performed because the `<<< SECTION >>>` delimiter (not markdown heading depth) is the structural boundary. This saves tokens and avoids information loss.
+- **Token efficient** — compared to the previous format: no repeated horizontal rules (`---`), no anchor link markup in the TOC, no extra `#` characters from heading bumping.
+- **HTML comment metadata on line 1** — machine-parseable but invisible to most renderers. Lets a tool quickly identify the document without reading the whole thing.
+- **Source annotations preserved** — DeepWiki pages contain `Sources: file.py:1-50` annotations linking to GitHub. These provide useful code location context for LLMs.
+- **Mermaid blocks preserved** — left as fenced code blocks. Many LLMs can interpret these.
 
 ### JSON format
 
@@ -234,13 +266,13 @@ When `--format json` is specified:
   "pages": [
     {
       "slug": "1-overview",
-      "title": "Overview",
+      "title": "1 Overview",
       "depth": 0,
       "content": "...markdown content..."
     },
     {
-      "slug": "1.1-key-features",
-      "title": "Key Features",
+      "slug": "1-1-key-features",
+      "title": "1.1 Key Features",
       "depth": 1,
       "content": "..."
     }
@@ -277,7 +309,7 @@ src/
 │   └── types.rs     # JSON-RPC and MCP type definitions
 ├── compiler/
 │   ├── mod.rs       # Orchestrates fetch + compile pipeline
-│   ├── markdown.rs  # Markdown output assembly, heading rewriting
+│   ├── markdown.rs  # Markdown output assembly, tree TOC, section delimiters
 │   └── json.rs      # JSON output assembly
 └── wiki/
     ├── mod.rs       # Wiki types: Page, Structure, etc.

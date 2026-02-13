@@ -36,7 +36,7 @@ struct Cli {
     #[arg(short = 'x', long, value_delimiter = ',')]
     exclude: Option<Vec<String>>,
 
-    /// Omit the generated table of contents from output
+    /// Omit the structure tree from output
     #[arg(long)]
     no_toc: bool,
 
@@ -127,10 +127,7 @@ async fn main() -> Result<()> {
     // --list: just print the TOC and exit
     if cli.list {
         let pages = compiler::fetch_structure(&config).await?;
-        for page in &pages {
-            let indent = "  ".repeat(page.depth);
-            println!("{}- {} [{}]", indent, page.title, page.slug);
-        }
+        print!("{}", compiler::markdown::render_tree(&pages, true));
         return Ok(());
     }
 
