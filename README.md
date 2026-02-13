@@ -138,7 +138,7 @@ dw2md tinygrad/tinygrad --no-toc --no-metadata
 The output format is designed for LLM and agent workflows — a tree-structured table of contents for fast orientation, and grep-friendly section delimiters so agents can selectively extract the sections they need.
 
 ```markdown
-<!-- dw2md v0.1.0 | tinygrad/tinygrad | 2026-02-12T15:30:00Z | 29 pages -->
+<!-- dw2md v0.2.0 | tinygrad/tinygrad | 2026-02-12T15:30:00Z | 29 pages -->
 
 # tinygrad/tinygrad — DeepWiki
 
@@ -205,7 +205,7 @@ With `--format json`:
   "repo": "tinygrad/tinygrad",
   "url": "https://deepwiki.com/tinygrad/tinygrad",
   "generated_at": "2026-02-12T15:30:00Z",
-  "tool_version": "0.1.0",
+  "tool_version": "0.2.0",
   "page_count": 29,
   "pages": [
     {

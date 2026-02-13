@@ -68,7 +68,7 @@ impl McpClient {
                 "capabilities": {},
                 "clientInfo": {
                     "name": "dw2md",
-                    "version": "0.1.0"
+                    "version": "0.2.0"
                 }
             }),
         );

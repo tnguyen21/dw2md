@@ -29,7 +29,7 @@ pub fn compile(repo: &str, pages: &[Page]) -> String {
         repo: repo.to_string(),
         url: format!("https://deepwiki.com/{}", repo),
         generated_at: now,
-        tool_version: "0.1.0".to_string(),
+        tool_version: "0.2.0".to_string(),
         page_count,
         pages: pages
             .iter()
@@ -74,7 +74,7 @@ mod tests {
 
         assert_eq!(parsed["repo"], "test/repo");
         assert_eq!(parsed["url"], "https://deepwiki.com/test/repo");
-        assert_eq!(parsed["tool_version"], "0.1.0");
+        assert_eq!(parsed["tool_version"], "0.2.0");
         assert_eq!(parsed["page_count"], 2);
         assert_eq!(parsed["pages"][0]["slug"], "1-overview");
         assert_eq!(parsed["pages"][0]["content"], "Hello world.");

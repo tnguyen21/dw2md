@@ -1,6 +1,6 @@
 # `dw2md` — DeepWiki to Markdown Compile
 
-**Version:** 0.1.0
+**Version:** 0.2.0
 **Language:** Rust
 **Purpose:** Crawl a DeepWiki repository and compile all pages into a single, LLM-friendly markdown file.
 
@@ -51,7 +51,7 @@ POST /mcp
     "capabilities": {},
     "clientInfo": {
       "name": "dw2md",
-      "version": "0.1.0"
+      "version": "0.2.0"
     }
   }
 }
@@ -184,7 +184,7 @@ The markdown output is designed for LLM and agent workflows. The two key design 
 The compiled document follows this structure:
 
 ```markdown
-<!-- dw2md v0.1.0 | tinygrad/tinygrad | 2026-02-12T15:30:00Z | 47 pages -->
+<!-- dw2md v0.2.0 | tinygrad/tinygrad | 2026-02-12T15:30:00Z | 47 pages -->
 
 # tinygrad/tinygrad — DeepWiki
 
@@ -261,7 +261,7 @@ When `--format json` is specified:
   "repo": "tinygrad/tinygrad",
   "url": "https://deepwiki.com/tinygrad/tinygrad",
   "generated_at": "2026-02-12T15:30:00Z",
-  "tool_version": "0.1.0",
+  "tool_version": "0.2.0",
   "page_count": 47,
   "pages": [
     {
@@ -343,7 +343,7 @@ The tool should handle these failure modes gracefully:
 
 ## Future Extensions
 
-These are explicitly out of scope for v0.1.0 but worth designing around:
+These are explicitly out of scope for v0.2.0 but worth designing around:
 
 - **`--ask <QUESTION>`** — pipe the compiled wiki to the `ask_question` tool and print the answer. Useful for one-shot queries.
 - **Caching** — store fetched wikis in `~/.cache/dw2md/` keyed by `owner/repo` with a TTL. Skip fetching if fresh.

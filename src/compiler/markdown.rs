@@ -9,7 +9,7 @@ pub fn compile(repo: &str, pages: &[Page], include_toc: bool, include_metadata: 
     // Metadata comment
     if include_metadata {
         output.push_str(&format!(
-            "<!-- dw2md v0.1.0 | {} | {} | {} pages -->\n\n",
+            "<!-- dw2md v0.2.0 | {} | {} | {} pages -->\n\n",
             repo, now, page_count
         ));
     }
@@ -289,7 +289,7 @@ mod tests {
         ];
 
         let result = compile("test/repo", &pages, true, true);
-        assert!(result.contains("<!-- dw2md v0.1.0 | test/repo"));
+        assert!(result.contains("<!-- dw2md v0.2.0 | test/repo"));
         assert!(result.contains("# test/repo — DeepWiki"));
         assert!(result.contains("## Structure"));
         assert!(result.contains("├── 1 Overview"));
