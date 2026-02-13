@@ -1,6 +1,6 @@
 [package]
 name = "dw2md"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = ["nwyin <nwyin@hey.com>"]
 description = "Crawl a DeepWiki repository and compile all pages into a single, LLM-friendly markdown file"

@@ -25,8 +25,8 @@ brew install tnguyen21/dw2md/dw2md
 ### Debian/Ubuntu (.deb)
 
 ```bash
-curl -LO https://github.com/tnguyen21/dw2md/releases/latest/download/dw2md_0.2.0_amd64.deb
-sudo dpkg -i dw2md_0.2.0_amd64.deb
+curl -LO https://github.com/tnguyen21/dw2md/releases/latest/download/dw2md_0.2.1_amd64.deb
+sudo dpkg -i dw2md_0.2.1_amd64.deb
 ```
 
 ### From source
