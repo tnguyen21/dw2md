@@ -198,10 +198,34 @@ async fn main() -> Result<()> {
 
 fn write_output(output: &str, path: Option<&str>, quiet: bool) -> Result<()> {
     if let Some(path) = path {
-        std::fs::write(path, output)
-            .with_context(|| format!("Failed to write output to {}", path))?;
+        let target = std::path::Path::new(path);
+
+        // Resolve symlinks: if the target already exists, canonicalize to get the real path.
+        // This ensures the user sees the actual destination, not a symlink alias.
+        let resolved = if target.exists() {
+            target
+                .canonicalize()
+                .with_context(|| format!("Failed to resolve path {}", path))?
+        } else {
+            // For new files, canonicalize the parent directory to catch symlinked directories
+            if let Some(parent) = target.parent() {
+                let canon_parent = if parent.as_os_str().is_empty() {
+                    std::env::current_dir().context("Failed to get current directory")?
+                } else {
+                    parent
+                        .canonicalize()
+                        .with_context(|| format!("Failed to resolve parent directory of {}", path))?
+                };
+                canon_parent.join(target.file_name().unwrap_or_default())
+            } else {
+                target.to_path_buf()
+            }
+        };
+
+        std::fs::write(&resolved, output)
+            .with_context(|| format!("Failed to write output to {}", resolved.display()))?;
         if !quiet {
-            eprintln!("[dw2md] Output written to {}", path);
+            eprintln!("[dw2md] Output written to {}", resolved.display());
         }
     } else {
         print!("{}", output);
