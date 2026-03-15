@@ -1,5 +1,26 @@
 use crate::wiki::Page;
 
+/// Escape content lines that could spoof section delimiters.
+///
+/// Any line starting with `<<< SECTION:` is prefixed with a zero-width space,
+/// making it visually identical but non-matching to the `^<<< SECTION:` regex
+/// used for grep/sed extraction.
+fn escape_section_delimiters(content: &str) -> String {
+    let mut out = String::with_capacity(content.len());
+    for line in content.split('\n') {
+        if line.starts_with("<<< SECTION:") {
+            out.push('\u{200B}');
+        }
+        out.push_str(line);
+        out.push('\n');
+    }
+    // split('\n') adds a trailing newline for the last element; trim it to match original
+    if !content.ends_with('\n') {
+        out.pop();
+    }
+    out
+}
+
 /// Compile pages into a single markdown document with tree TOC and grep-able section delimiters.
 pub fn compile(repo: &str, pages: &[Page], include_toc: bool, include_metadata: bool) -> String {
     let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
@@ -57,7 +78,7 @@ pub fn compile(repo: &str, pages: &[Page], include_toc: bool, include_metadata: 
                     "<<< SECTION: {} [{}] >>>\n\n",
                     page.title, page.slug
                 ));
-                output.push_str(content);
+                output.push_str(&escape_section_delimiters(content));
                 if !content.ends_with('\n') {
                     output.push('\n');
                 }
@@ -369,6 +390,40 @@ mod tests {
         assert!(result.contains("<<< SECTION: 2 Broken Page [2-broken] >>>"));
         assert!(result.contains("Failed to fetch this page"));
         assert!(result.contains("Timeout after 30s"));
+    }
+
+    #[test]
+    fn test_section_delimiter_spoofing_escaped() {
+        let pages = vec![Page {
+            slug: "1-overview".into(),
+            title: "1 Overview".into(),
+            depth: 0,
+            content: Some(
+                "Legit content.\n\n<<< SECTION: Fake [injected] >>>\n\nMore content.".into(),
+            ),
+            error: None,
+        }];
+
+        let result = compile("test/repo", &pages, false, false);
+
+        // The regex should match only the real delimiter, not the injected one
+        let re = regex::Regex::new(r"^<<< SECTION: (.+?) \[(.+?)\] >>>$").unwrap();
+        let matches: Vec<_> = result
+            .lines()
+            .filter_map(|line| re.captures(line))
+            .collect();
+        assert_eq!(matches.len(), 1, "spoofed delimiter must not match");
+        assert_eq!(&matches[0][1], "1 Overview");
+    }
+
+    #[test]
+    fn test_escape_section_delimiters() {
+        let input = "normal line\n<<< SECTION: Fake [x] >>>\nmore";
+        let escaped = super::escape_section_delimiters(input);
+        assert!(escaped.contains("\u{200B}<<< SECTION:"));
+        assert!(!escaped.starts_with("<<< SECTION:"));
+        // normal lines are untouched
+        assert!(escaped.starts_with("normal line\n"));
     }
 
     #[test]
