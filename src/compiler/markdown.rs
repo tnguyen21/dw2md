@@ -6,19 +6,23 @@ use crate::wiki::Page;
 /// making it visually identical but non-matching to the `^<<< SECTION:` regex
 /// used for grep/sed extraction.
 fn escape_section_delimiters(content: &str) -> String {
-    let mut out = String::with_capacity(content.len());
-    for line in content.split('\n') {
-        if line.starts_with("<<< SECTION:") {
-            out.push('\u{200B}');
-        }
-        out.push_str(line);
-        out.push('\n');
+    let escaped: String = content
+        .lines()
+        .map(|line| {
+            if line.starts_with("<<< SECTION:") {
+                format!("\u{200B}{}", line)
+            } else {
+                line.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    if content.ends_with('\n') {
+        escaped + "\n"
+    } else {
+        escaped
     }
-    // split('\n') adds a trailing newline for the last element; trim it to match original
-    if !content.ends_with('\n') {
-        out.pop();
-    }
-    out
 }
 
 /// Compile pages into a single markdown document with tree TOC and grep-able section delimiters.
@@ -424,6 +428,24 @@ mod tests {
         assert!(!escaped.starts_with("<<< SECTION:"));
         // normal lines are untouched
         assert!(escaped.starts_with("normal line\n"));
+    }
+
+    #[test]
+    fn test_escape_preserves_trailing_newline() {
+        let with_newline = "line\n<<< SECTION: X >>>\n";
+        let escaped = super::escape_section_delimiters(with_newline);
+        assert!(escaped.ends_with('\n'), "trailing newline must be preserved");
+
+        let without_newline = "line\n<<< SECTION: X >>>";
+        let escaped2 = super::escape_section_delimiters(without_newline);
+        assert!(!escaped2.ends_with('\n'), "no trailing newline when input lacks one");
+    }
+
+    #[test]
+    fn test_escape_no_false_positives() {
+        let input = "normal content\nno delimiters here\n";
+        let escaped = super::escape_section_delimiters(input);
+        assert_eq!(escaped, input, "content without delimiters must be unchanged");
     }
 
     #[test]

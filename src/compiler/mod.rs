@@ -247,3 +247,46 @@ async fn call_with_retry(
 
     Err(last_err.unwrap())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sanitize_preserves_normal_text() {
+        assert_eq!(sanitize_for_terminal("hello world"), "hello world");
+    }
+
+    #[test]
+    fn test_sanitize_preserves_newlines_and_tabs() {
+        assert_eq!(sanitize_for_terminal("a\tb\nc"), "a\tb\nc");
+    }
+
+    #[test]
+    fn test_sanitize_strips_ansi_escape() {
+        // ESC [ 2 J = clear screen
+        assert_eq!(sanitize_for_terminal("title\x1b[2J"), "title[2J");
+    }
+
+    #[test]
+    fn test_sanitize_strips_null_and_bel() {
+        assert_eq!(sanitize_for_terminal("a\x00b\x07c"), "abc");
+    }
+
+    #[test]
+    fn test_sanitize_strips_c1_control_codes() {
+        // C1 range: 0x80-0x9F (e.g., 0x9B = CSI)
+        let input = format!("before{}after", '\u{009B}');
+        assert_eq!(sanitize_for_terminal(&input), "beforeafter");
+    }
+
+    #[test]
+    fn test_sanitize_strips_del() {
+        assert_eq!(sanitize_for_terminal("a\x7Fb"), "ab");
+    }
+
+    #[test]
+    fn test_sanitize_passes_unicode() {
+        assert_eq!(sanitize_for_terminal("hello 🌍 world"), "hello 🌍 world");
+    }
+}
