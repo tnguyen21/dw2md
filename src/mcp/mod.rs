@@ -154,8 +154,10 @@ impl McpClient {
         Ok(extract_text(&tool_result.content))
     }
 
-    /// Send a raw JSON-RPC request.
+    /// Send a JSON-RPC request and validate the response id matches.
     async fn send(&self, request: &JsonRpcRequest) -> Result<serde_json::Value> {
+        let expected_id = request.id;
+
         let response = send_request(
             &self.client,
             &self.endpoint,
@@ -164,6 +166,28 @@ impl McpClient {
             self.timeout,
         )
         .await?;
+
+        // Validate response id matches request id (skip for notifications which have no id)
+        if let Some(expected) = expected_id {
+            let rpc: JsonRpcResponse = serde_json::from_value(response.body.clone())
+                .context("Failed to parse JSON-RPC response for id validation")?;
+            match rpc.id {
+                Some(actual) if actual != expected => {
+                    bail!(
+                        "JSON-RPC id mismatch: expected {}, got {}",
+                        expected,
+                        actual
+                    );
+                }
+                None => {
+                    bail!(
+                        "JSON-RPC response missing id (expected {})",
+                        expected
+                    );
+                }
+                _ => {}
+            }
+        }
 
         Ok(response.body)
     }
