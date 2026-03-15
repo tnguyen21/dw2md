@@ -9,6 +9,24 @@ use indicatif::{ProgressBar, ProgressStyle};
 use crate::mcp::McpClient;
 use crate::wiki::{filter, merge_content, split_pages, Page, WikiStructure};
 
+/// Strip C0/C1 control characters from a string before terminal output.
+///
+/// Removes bytes 0x00-0x1F (except \n 0x0A and \t 0x09), 0x7F (DEL),
+/// and 0x80-0x9F (C1 control codes). This prevents ANSI escape injection
+/// from remote-derived data like page titles.
+pub fn sanitize_for_terminal(s: &str) -> String {
+    s.chars()
+        .filter(|&c| {
+            if c == '\n' || c == '\t' {
+                return true;
+            }
+            let code = c as u32;
+            // Drop C0 (0x00-0x1F), DEL (0x7F), and C1 (0x80-0x9F)
+            !(code <= 0x1F || code == 0x7F || (0x80..=0x9F).contains(&code))
+        })
+        .collect()
+}
+
 /// Configuration for the compilation pipeline.
 pub struct CompileConfig {
     pub repo: String,
@@ -58,7 +76,7 @@ pub async fn fetch_wiki(config: &CompileConfig) -> Result<Vec<Page>> {
     if unmatched > 0 && config.verbose {
         for page in &pages {
             if page.content.is_none() {
-                eprintln!("[dw2md] Warning: No content matched for '{}'", page.title);
+                eprintln!("[dw2md] Warning: No content matched for '{}'", sanitize_for_terminal(&page.title));
             }
         }
     }
@@ -135,7 +153,7 @@ async fn fetch_structure_inner(
         eprintln!(
             "[dw2md] Raw structure ({} bytes):\n{}",
             structure_text.len(),
-            &structure_text[..structure_text.len().min(500)]
+            sanitize_for_terminal(&structure_text[..structure_text.len().min(500)])
         );
     }
 
@@ -188,7 +206,7 @@ async fn fetch_and_merge_contents(
             content_pages.len()
         );
         for (title, content) in &content_pages {
-            eprintln!("  - \"{}\" ({} bytes)", title, content.len());
+            eprintln!("  - \"{}\" ({} bytes)", sanitize_for_terminal(title), content.len());
         }
     }
 

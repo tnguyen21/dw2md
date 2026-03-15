@@ -127,7 +127,8 @@ async fn main() -> Result<()> {
     // --list: just print the TOC and exit
     if cli.list {
         let pages = compiler::fetch_structure(&config).await?;
-        print!("{}", compiler::markdown::render_tree(&pages, true));
+        let tree = compiler::markdown::render_tree(&pages, true);
+        print!("{}", compiler::sanitize_for_terminal(&tree));
         return Ok(());
     }
 
