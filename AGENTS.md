@@ -42,7 +42,7 @@ grep "^<<< SECTION:" wiki.md              # List all sections
 
 ```bash
 cargo install dw2md          # From crates.io
-brew install tnguyen21/dw2md/dw2md  # Homebrew
+brew install nwyin/dw2md/dw2md  # Homebrew
 ```
 
 ### Tips for agents

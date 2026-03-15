@@ -19,27 +19,27 @@ cargo install dw2md
 ### Homebrew (macOS/Linux)
 
 ```bash
-brew install tnguyen21/dw2md/dw2md
+brew install nwyin/dw2md/dw2md
 ```
 
 ### Debian/Ubuntu (.deb)
 
 ```bash
-curl -LO https://github.com/tnguyen21/dw2md/releases/latest/download/dw2md_0.2.1_amd64.deb
+curl -LO https://github.com/nwyin/dw2md/releases/latest/download/dw2md_0.2.1_amd64.deb
 sudo dpkg -i dw2md_0.2.1_amd64.deb
 ```
 
 ### From source
 
 ```bash
-git clone https://github.com/tnguyen21/dw2md
+git clone https://github.com/nwyin/dw2md
 cd dw2md
 cargo install --path .
 ```
 
 ### Pre-built binaries
 
-Download from [GitHub Releases](https://github.com/tnguyen21/dw2md/releases) for Linux, macOS (x86_64/ARM64), and Windows.
+Download from [GitHub Releases](https://github.com/nwyin/dw2md/releases) for Linux, macOS (x86_64/ARM64), and Windows.
 
 Produces a single static binary (~6MB, no OpenSSL dependency).
 

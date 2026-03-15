@@ -1,12 +1,12 @@
 [package]
 name = "dw2md"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 authors = ["nwyin <nwyin@hey.com>"]
 description = "Crawl a DeepWiki repository and compile all pages into a single, LLM-friendly markdown file"
 readme = "README.md"
-homepage = "https://github.com/tnguyen21/dw2md"
-repository = "https://github.com/tnguyen21/dw2md"
+homepage = "https://github.com/nwyin/dw2md"
+repository = "https://github.com/nwyin/dw2md"
 license = "MIT"
 keywords = ["deepwiki", "documentation", "markdown", "mcp", "llm"]
 categories = ["command-line-utilities", "text-processing"]

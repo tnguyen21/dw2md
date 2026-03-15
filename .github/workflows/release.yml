@@ -103,7 +103,7 @@ jobs:
           Description: Crawl a DeepWiki repo and compile all pages into markdown
            Talks to DeepWiki's MCP server to pull wiki structure and contents,
            then assembles everything into a single LLM-friendly document.
-          Homepage: https://github.com/tnguyen21/dw2md
+          Homepage: https://github.com/nwyin/dw2md
           License: MIT
           EOF
           dpkg-deb --root-owner-group --build pkg "dw2md_${VERSION}_amd64.deb"
@@ -130,7 +130,7 @@ jobs:
           VERSION: ${{ needs.create-release.outputs.version }}
         run: |
           for asset in dw2md-macos-aarch64 dw2md-macos-x86_64 dw2md-linux-x86_64-musl; do
-            curl -fLO "https://github.com/tnguyen21/dw2md/releases/download/v${VERSION}/${asset}"
+            curl -fLO "https://github.com/nwyin/dw2md/releases/download/v${VERSION}/${asset}"
           done
 
       - name: Compute SHA256 checksums
@@ -148,28 +148,28 @@ jobs:
           SHA_MACOS_X86_64: ${{ steps.sha.outputs.macos_x86_64 }}
           SHA_LINUX_MUSL: ${{ steps.sha.outputs.linux_musl }}
         run: |
-          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/tnguyen21/homebrew-dw2md.git" tap
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/nwyin/homebrew-dw2md.git" tap
           mkdir -p tap/Formula
 
           cat > tap/Formula/dw2md.rb <<RUBY
           class Dw2md < Formula
             desc "Crawl a DeepWiki repository and compile all pages into markdown"
-            homepage "https://github.com/tnguyen21/dw2md"
+            homepage "https://github.com/nwyin/dw2md"
             version "${VERSION}"
             license "MIT"
 
             on_macos do
               if Hardware::CPU.arm?
-                url "https://github.com/tnguyen21/dw2md/releases/download/v${VERSION}/dw2md-macos-aarch64"
+                url "https://github.com/nwyin/dw2md/releases/download/v${VERSION}/dw2md-macos-aarch64"
                 sha256 "${SHA_MACOS_AARCH64}"
               else
-                url "https://github.com/tnguyen21/dw2md/releases/download/v${VERSION}/dw2md-macos-x86_64"
+                url "https://github.com/nwyin/dw2md/releases/download/v${VERSION}/dw2md-macos-x86_64"
                 sha256 "${SHA_MACOS_X86_64}"
               end
             end
 
             on_linux do
-              url "https://github.com/tnguyen21/dw2md/releases/download/v${VERSION}/dw2md-linux-x86_64-musl"
+              url "https://github.com/nwyin/dw2md/releases/download/v${VERSION}/dw2md-linux-x86_64-musl"
               sha256 "${SHA_LINUX_MUSL}"
             end
 

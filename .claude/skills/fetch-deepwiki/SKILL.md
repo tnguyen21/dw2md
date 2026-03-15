@@ -26,7 +26,7 @@ cargo install dw2md
 Or on macOS/Linux:
 
 ```bash
-brew install tnguyen21/dw2md/dw2md
+brew install nwyin/dw2md/dw2md
 ```
 
 ## Usage

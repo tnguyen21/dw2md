@@ -69,8 +69,8 @@ Create a Homebrew tap:
    ```ruby
    class Dw2md < Formula
      desc "Crawl a DeepWiki repository and compile all pages into markdown"
-     homepage "https://github.com/tnguyen21/dw2md"
-     url "https://github.com/tnguyen21/dw2md/archive/v0.1.0.tar.gz"
+     homepage "https://github.com/nwyin/dw2md"
+     url "https://github.com/nwyin/dw2md/archive/v0.1.0.tar.gz"
      sha256 "..."
      license "MIT"
 
@@ -81,7 +81,7 @@ Create a Homebrew tap:
      end
    end
    ```
-3. Users install with: `brew install tnguyen21/dw2md/dw2md`
+3. Users install with: `brew install nwyin/dw2md/dw2md`
 
 Alternatively, submit to [homebrew-core](https://github.com/Homebrew/homebrew-core) after gaining traction.
 
