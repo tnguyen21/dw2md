@@ -4,3 +4,6 @@
 
 # dw2md output files
 *-wiki.md
+
+# cargo-mutants output
+mutants.out*
